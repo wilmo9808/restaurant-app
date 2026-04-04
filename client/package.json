@@ -5,7 +5,7 @@
   "main": "postcss.config.js",
   "scripts": {
     "dev": "vite",
-    "build": "vite build --emptyOutDir",
+    "build": "npx vite build --emptyOutDir",
     "preview": "vite preview"
   },
   "keywords": [],
