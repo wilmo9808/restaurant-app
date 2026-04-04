@@ -1,5 +1,8 @@
 {
-    "buildCommand": "yarn build",
+    "buildCommand": "npm run build",
     "outputDirectory": "dist",
-    "installCommand": "yarn install"
+    "installCommand": "npm install",
+    "rewrites": [
+        { "source": "/(.*)", "destination": "/index.html" }
+    ]
 }
