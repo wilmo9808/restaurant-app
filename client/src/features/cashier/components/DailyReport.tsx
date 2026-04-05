@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../../../store/authStore';
 import { useUIStore } from '../../../store/uiStore';
 import { Button } from '../../../components/UI/Button';
 import { Input } from '../../../components/Forms/Input';
 import { formatCurrency, formatDate } from '../../../utils/formatters';
 import { Calendar, Search, FileSpreadsheet, RefreshCw } from 'lucide-react';
+import { supabase } from '../../../config/supabase';
 
 interface DailyReportProps {
     report: {
@@ -21,7 +21,6 @@ interface DailyReportProps {
 }
 
 export const DailyReport: React.FC<DailyReportProps> = ({ report, onRefresh, onLoadDate }) => {
-    const { token } = useAuthStore();
     const { showToast, setLoading, isLoading } = useUIStore();
     const [isExporting, setIsExporting] = useState(false);
     const [selectedDate, setSelectedDate] = useState<string>(() => {
@@ -33,7 +32,6 @@ export const DailyReport: React.FC<DailyReportProps> = ({ report, onRefresh, onL
     // Función para ajustar la fecha a UTC-5 (Colombia)
     const adjustDateToColombia = (dateStr: string): string => {
         const [year, month, day] = dateStr.split('-');
-        // Crear fecha en UTC-5 (Colombia)
         const colombiaDate = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, parseInt(day), 5, 0, 0));
         return colombiaDate.toISOString().split('T')[0];
     };
@@ -59,29 +57,83 @@ export const DailyReport: React.FC<DailyReportProps> = ({ report, onRefresh, onL
         setIsExporting(true);
         try {
             const adjustedDate = adjustDateToColombia(selectedDate);
-            const dateParam = `?date=${adjustedDate}`;
 
-            const response = await fetch(`http://localhost:3000/api/reports/export-excel${dateParam}`, {
-                method: 'GET',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            // Obtener las órdenes completadas de la fecha seleccionada
+            const startDate = new Date(adjustedDate);
+            startDate.setHours(0, 0, 0, 0);
+            const endDate = new Date(adjustedDate);
+            endDate.setHours(23, 59, 59, 999);
 
-            if (!response.ok) {
-                throw new Error('Error al exportar');
+            const { data: orders, error } = await supabase
+                .from('Order')
+                .select('*, user:userId(name), items:OrderItem(*)')
+                .eq('status', 'COMPLETED')
+                .gte('createdAt', startDate.toISOString())
+                .lte('createdAt', endDate.toISOString());
+
+            if (error) throw error;
+
+            // Crear CSV para exportar
+            const csvRows = [
+                ['Fecha', 'Pedido #', 'Mesa', 'Producto', 'Cantidad', 'Precio Unitario', 'Subtotal', 'Toppings', 'Total Pedido', 'Estado', 'Mesero', 'Notas']
+            ];
+
+            for (const order of orders || []) {
+                for (const item of order.items) {
+                    let toppingsText = '';
+                    if (item.toppings) {
+                        try {
+                            const toppings = JSON.parse(item.toppings);
+                            toppingsText = toppings.map((t: any) => `${t.toppingName || t.modifierName} (${t.price})`).join(', ');
+                        } catch (e) {
+                            toppingsText = '';
+                        }
+                    }
+
+                    // Obtener nombre del producto
+                    const { data: product } = await supabase
+                        .from('Product')
+                        .select('name')
+                        .eq('id', item.productId)
+                        .single();
+
+                    csvRows.push([
+                        new Date(order.createdAt).toLocaleString('es-CO'),
+                        order.id.slice(-8),
+                        order.tableNumber.toString(),
+                        product?.name || item.productId,
+                        item.quantity.toString(),
+                        (item.subtotal / item.quantity).toString(),
+                        item.subtotal.toString(),
+                        toppingsText,
+                        order.total.toString(),
+                        order.status,
+                        order.user?.name || '',
+                        order.notes || '',
+                    ]);
+                }
             }
 
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            // Agregar filas de resumen
+            const totalVentas = (orders || []).reduce((sum, order) => sum + order.total, 0);
+            csvRows.push([]);
+            csvRows.push(['RESUMEN DEL DÍA']);
+            csvRows.push(['Total Ventas', formatCurrency(totalVentas)]);
+            csvRows.push(['Total Pedidos', (orders?.length || 0).toString()]);
+
+            // Convertir a CSV
+            const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            const fileName = `reporte_${selectedDate}.xlsx`;
+            const fileName = `reporte_${selectedDate}.csv`;
             a.download = fileName;
             document.body.appendChild(a);
             a.click();
-            window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
             showToast('Reporte exportado exitosamente', 'success');
         } catch (error) {
             console.error('Error exportando:', error);
@@ -118,7 +170,6 @@ export const DailyReport: React.FC<DailyReportProps> = ({ report, onRefresh, onL
         { label: 'Pedidos Pendientes', value: pendingOrders, color: 'text-yellow-500' },
     ];
 
-    // Formatear la fecha seleccionada para mostrar
     const formatDisplayDate = () => {
         if (!displayDate) return 'Día';
         const [year, month, day] = displayDate.split('-');
@@ -128,7 +179,6 @@ export const DailyReport: React.FC<DailyReportProps> = ({ report, onRefresh, onL
     return (
         <div className="space-y-4">
             <div className="bg-white rounded-lg shadow-md p-4">
-                {/* Selector de fecha */}
                 <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                     <h3 className="font-medium text-gray-700 mb-3 flex items-center gap-2">
                         <Calendar size={18} /> Seleccionar Fecha

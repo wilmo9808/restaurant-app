@@ -22,7 +22,7 @@ export const useOrders = (status?: string) => {
             if (status === 'PENDING' || status === 'IN_PROGRESS') {
                 setKitchenOrders(data);
             }
-            if (status === 'COMPLETED') {
+            if (status === 'READY') {
                 setCashierOrders(data);
             }
         }

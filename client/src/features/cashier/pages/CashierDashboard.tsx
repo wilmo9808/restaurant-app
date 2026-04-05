@@ -7,8 +7,7 @@ import { PaymentModal } from '../components/PaymentModal';
 import { useOrders } from '../../../hooks/useOrders';
 import { useUIStore } from '../../../store/uiStore';
 import { Order } from '../../../types/order';
-import { getTotals, getDailyReport as getDailyReportService } from '../../../services/orderService';
-import { useAuthStore } from '../../../store/authStore';
+import { supabase } from '../../../config/supabase';
 
 type TabType = 'orders' | 'report';
 
@@ -21,7 +20,6 @@ export const CashierDashboard: React.FC = () => {
     const [currentReportDate, setCurrentReportDate] = useState<string>('');
 
     const { orders, isLoading, updateStatus, isUpdating } = useOrders('READY');
-    const { token } = useAuthStore();
     const { showToast } = useUIStore();
 
     useEffect(() => {
@@ -30,28 +28,96 @@ export const CashierDashboard: React.FC = () => {
     }, []);
 
     const loadTotals = async () => {
-        if (!token) return;
         try {
-            const data = await getTotals(token);
-            setTotals(data);
+            // Obtener órdenes completadas
+            const { data: completedOrders, error: completedError } = await supabase
+                .from('Order')
+                .select('total, createdAt')
+                .eq('status', 'COMPLETED');
+
+            if (completedError) throw completedError;
+
+            // Obtener órdenes pendientes y en progreso
+            const { count: pendingOrders, error: pendingError } = await supabase
+                .from('Order')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'PENDING');
+
+            if (pendingError) throw pendingError;
+
+            const { count: inProgressOrders, error: inProgressError } = await supabase
+                .from('Order')
+                .select('*', { count: 'exact', head: true })
+                .eq('status', 'IN_PROGRESS');
+
+            if (inProgressError) throw inProgressError;
+
+            // Calcular ventas de hoy
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const todayRevenue = (completedOrders || [])
+                .filter(order => new Date(order.createdAt) >= today)
+                .reduce((sum, order) => sum + order.total, 0);
+
+            const totalRevenue = (completedOrders || []).reduce((sum, order) => sum + order.total, 0);
+            const totalOrders = completedOrders?.length || 0;
+
+            setTotals({
+                todayRevenue,
+                totalRevenue,
+                totalOrders,
+                pendingOrders: pendingOrders || 0,
+                inProgressOrders: inProgressOrders || 0,
+            });
         } catch (error) {
             console.error('Error loading totals:', error);
         }
     };
 
     const loadDailyReport = async (date?: string) => {
-        if (!token) return;
         try {
-            // Si se pasa una fecha, agregarla como parámetro
-            let url = '/reports/daily';
+            let query = supabase
+                .from('Order')
+                .select('*, user:userId(name), items:OrderItem(*)')
+                .eq('status', 'COMPLETED');
+
             if (date) {
-                url = `/reports/daily?date=${date}`;
+                const startDate = new Date(date);
+                startDate.setHours(0, 0, 0, 0);
+                const endDate = new Date(date);
+                endDate.setHours(23, 59, 59, 999);
+
+                query = query
+                    .gte('createdAt', startDate.toISOString())
+                    .lte('createdAt', endDate.toISOString());
                 setCurrentReportDate(date);
             } else {
                 setCurrentReportDate('');
             }
-            const data = await getDailyReportService(token, date);
-            setDailyReport(data);
+
+            const { data, error } = await query;
+
+            if (error) throw error;
+
+            const totalRevenue = (data || []).reduce((sum, order) => sum + order.total, 0);
+            const totalOrders = data?.length || 0;
+
+            // Calcular ventas por mesa
+            const ordersByTable: Record<number, number> = {};
+            (data || []).forEach(order => {
+                ordersByTable[order.tableNumber] = (ordersByTable[order.tableNumber] || 0) + order.total;
+            });
+
+            setDailyReport({
+                date: date ? new Date(date) : new Date(),
+                totalOrders,
+                totalRevenue,
+                completedOrders: totalOrders,
+                pendingOrders: 0,
+                ordersByTable,
+                orders: data || [],
+            });
         } catch (error) {
             console.error('Error loading daily report:', error);
         }
@@ -66,25 +132,21 @@ export const CashierDashboard: React.FC = () => {
     };
 
     const handleProcessPayment = (order: Order) => {
-        console.log('💰 Procesando pago para pedido:', order.id.slice(-6));
+        console.log('Procesando pago para pedido:', order.id.slice(-6));
         setSelectedOrder(order);
         setIsPaymentModalOpen(true);
     };
 
     const handleConfirmPayment = async () => {
         if (selectedOrder) {
-            console.log('✅ Confirmando pago para pedido:', selectedOrder.id.slice(-6));
-            console.log('📤 Enviando status: COMPLETED');
-
             try {
                 await updateStatus({ id: selectedOrder.id, status: 'COMPLETED' });
-                console.log('✅ Pago procesado exitosamente');
                 showToast('Pago procesado exitosamente', 'success');
                 setIsPaymentModalOpen(false);
                 setSelectedOrder(null);
                 await refreshData();
             } catch (error) {
-                console.error('❌ Error al procesar pago:', error);
+                console.error('Error al procesar pago:', error);
                 showToast('Error al procesar pago', 'error');
             }
         }

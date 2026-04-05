@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useAuthStore } from '../../../store/authStore';
+import { supabase } from '../../../config/supabase';
 import { useUIStore } from '../../../store/uiStore';
 import { Button } from '../../../components/UI/Button';
 import { Modal } from '../../../components/UI/Modal';
 import { Input } from '../../../components/Forms/Input';
 import { Select } from '../../../components/Forms/Select';
-import { ImagePlus, X, Archive, RotateCcw, Trash2 } from 'lucide-react';
+import { ImagePlus, X, Archive, Trash2 } from 'lucide-react';
 
 interface Product {
     id: string;
@@ -19,7 +19,6 @@ interface Product {
 }
 
 export const ProductManager: React.FC = () => {
-    const { token } = useAuthStore();
     const { showToast, setLoading, isLoading } = useUIStore();
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<{ value: string; label: string }[]>([]);
@@ -40,18 +39,19 @@ export const ProductManager: React.FC = () => {
     const fetchProducts = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:3000/api/admin/products', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            const data = await response.json();
-            if (data.success) {
-                setProducts(data.data);
-                const uniqueCategories = [...new Set(data.data.map((p: Product) => p.category))];
-                setCategories(uniqueCategories.map(cat => ({ value: cat, label: cat })));
-            }
+            const { data, error } = await supabase
+                .from('Product')
+                .select('*')
+                .is('deletedAt', null)
+                .order('createdAt', { ascending: false });
+
+            if (error) throw error;
+
+            setProducts(data as Product[]);
+            const uniqueCategories = [...new Set((data as Product[]).map(p => p.category))];
+            setCategories(uniqueCategories.map(cat => ({ value: cat, label: cat })));
         } catch (error) {
+            console.error('Error fetching products:', error);
             showToast('Error al cargar productos', 'error');
         } finally {
             setLoading(false);
@@ -73,7 +73,7 @@ export const ProductManager: React.FC = () => {
                 isActive: product.isActive,
                 imageUrl: product.imageUrl || null,
             });
-            setImagePreview(product.imageUrl ? `http://localhost:3000${product.imageUrl}` : null);
+            setImagePreview(product.imageUrl || null);
         } else {
             setEditingProduct(null);
             setFormData({
@@ -115,25 +115,23 @@ export const ProductManager: React.FC = () => {
         if (!imageFile) return formData.imageUrl;
 
         try {
-            const uploadFormData = new FormData();
-            uploadFormData.append('image', imageFile);
+            const fileExt = imageFile.name.split('.').pop();
+            const fileName = `${Date.now()}.${fileExt}`;
+            const filePath = `products/${fileName}`;
 
-            const response = await fetch('http://localhost:3000/api/admin/products/upload-image', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-                body: uploadFormData,
-            });
+            const { error: uploadError } = await supabase.storage
+                .from('product-images')
+                .upload(filePath, imageFile);
 
-            const data = await response.json();
-            if (data.success) {
-                return data.data.imageUrl;
-            } else {
-                showToast('Error al subir imagen', 'error');
-                return null;
-            }
+            if (uploadError) throw uploadError;
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('product-images')
+                .getPublicUrl(filePath);
+
+            return publicUrl;
         } catch (error) {
+            console.error('Error uploading image:', error);
             showToast('Error al subir imagen', 'error');
             return null;
         }
@@ -165,35 +163,35 @@ export const ProductManager: React.FC = () => {
             }
 
             const submitData = {
-                ...formData,
-                imageUrl,
+                name: formData.name,
+                price: formData.price,
+                category: formData.category,
+                description: formData.description,
+                isActive: formData.isActive,
+                imageUrl: imageUrl,
             };
 
-            const url = editingProduct
-                ? `http://localhost:3000/api/admin/products/${editingProduct.id}`
-                : 'http://localhost:3000/api/admin/products';
-
-            const method = editingProduct ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(submitData),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                showToast(editingProduct ? 'Producto actualizado' : 'Producto creado', 'success');
-                setIsModalOpen(false);
-                fetchProducts();
+            let error;
+            if (editingProduct) {
+                const { error: updateError } = await supabase
+                    .from('Product')
+                    .update(submitData)
+                    .eq('id', editingProduct.id);
+                error = updateError;
             } else {
-                showToast(data.message || 'Error', 'error');
+                const { error: insertError } = await supabase
+                    .from('Product')
+                    .insert([submitData]);
+                error = insertError;
             }
+
+            if (error) throw error;
+
+            showToast(editingProduct ? 'Producto actualizado' : 'Producto creado', 'success');
+            setIsModalOpen(false);
+            fetchProducts();
         } catch (error) {
+            console.error('Error saving product:', error);
             showToast('Error de conexión', 'error');
         } finally {
             setLoading(false);
@@ -203,24 +201,17 @@ export const ProductManager: React.FC = () => {
     const handleToggleActive = async (product: Product) => {
         setLoading(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/products/${product.id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ ...product, isActive: !product.isActive }),
-            });
+            const { error } = await supabase
+                .from('Product')
+                .update({ isActive: !product.isActive })
+                .eq('id', product.id);
 
-            const data = await response.json();
+            if (error) throw error;
 
-            if (data.success) {
-                showToast('Estado actualizado', 'success');
-                fetchProducts();
-            } else {
-                showToast(data.message || 'Error', 'error');
-            }
+            showToast('Estado actualizado', 'success');
+            fetchProducts();
         } catch (error) {
+            console.error('Error toggling product:', error);
             showToast('Error de conexión', 'error');
         } finally {
             setLoading(false);
@@ -232,22 +223,17 @@ export const ProductManager: React.FC = () => {
 
         setLoading(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/products/${productId}/archive`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const { error } = await supabase
+                .from('Product')
+                .update({ isActive: false, deletedAt: new Date().toISOString() })
+                .eq('id', productId);
 
-            const data = await response.json();
+            if (error) throw error;
 
-            if (data.success) {
-                showToast('Producto archivado exitosamente', 'success');
-                fetchProducts();
-            } else {
-                showToast(data.message || 'Error', 'error');
-            }
+            showToast('Producto archivado exitosamente', 'success');
+            fetchProducts();
         } catch (error) {
+            console.error('Error archiving product:', error);
             showToast('Error de conexión', 'error');
         } finally {
             setLoading(false);
@@ -259,22 +245,32 @@ export const ProductManager: React.FC = () => {
 
         setLoading(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/products/${productId}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            // Primero verificar si tiene pedidos asociados
+            const { data: orderItems, error: checkError } = await supabase
+                .from('OrderItem')
+                .select('id')
+                .eq('productId', productId)
+                .limit(1);
 
-            const data = await response.json();
+            if (checkError) throw checkError;
 
-            if (data.success) {
-                showToast('Producto eliminado permanentemente', 'success');
-                fetchProducts();
-            } else {
-                showToast(data.message || 'Error', 'error');
+            if (orderItems && orderItems.length > 0) {
+                showToast('No se puede eliminar el producto porque tiene pedidos asociados. Use Archivar en su lugar.', 'error');
+                setLoading(false);
+                return;
             }
+
+            const { error } = await supabase
+                .from('Product')
+                .delete()
+                .eq('id', productId);
+
+            if (error) throw error;
+
+            showToast('Producto eliminado permanentemente', 'success');
+            fetchProducts();
         } catch (error) {
+            console.error('Error deleting product:', error);
             showToast('Error de conexión', 'error');
         } finally {
             setLoading(false);
@@ -322,7 +318,7 @@ export const ProductManager: React.FC = () => {
                                 <td className="px-4 py-3">
                                     {product.imageUrl ? (
                                         <img
-                                            src={`http://localhost:3000${product.imageUrl}`}
+                                            src={product.imageUrl}
                                             alt={product.name}
                                             className="w-10 h-10 rounded-full object-cover bg-gray-100"
                                         />
@@ -378,9 +374,9 @@ export const ProductManager: React.FC = () => {
                                         Eliminar
                                     </button>
                                 </td>
-                            </tr>
+                                \), 
                         ))}
-                    </tbody>
+                            </tbody>
                 </table>
             </div>
 

@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { useAuthStore } from '../../../store/authStore';
+import { supabase } from '../../../config/supabase';
 import { useUIStore } from '../../../store/uiStore';
 
-// Tipos temporales mientras se construyen los servicios
+// Tipos
 interface User {
     id: string;
     email: string;
@@ -27,7 +27,7 @@ interface Product {
     isActive: boolean;
 }
 
-interface Modifier {
+interface Topping {
     id: string;
     name: string;
     price: number;
@@ -36,7 +36,6 @@ interface Modifier {
 }
 
 export const useAdmin = () => {
-    const { token } = useAuthStore();
     const { showToast } = useUIStore();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -49,15 +48,21 @@ export const useAdmin = () => {
     // Productos
     const [products, setProducts] = useState<Product[]>([]);
 
-    // Modificadores
-    const [modifiers, setModifiers] = useState<Modifier[]>([]);
+    // Toppings
+    const [toppings, setToppings] = useState<Topping[]>([]);
 
     const fetchUsers = async () => {
         setIsLoading(true);
         try {
-            // TODO: Implementar llamada a API
-            console.log('Fetching users...');
+            const { data, error } = await supabase
+                .from('User')
+                .select('*')
+                .order('createdAt', { ascending: false });
+
+            if (error) throw error;
+            setUsers(data as User[]);
         } catch (error) {
+            console.error('Error fetching users:', error);
             showToast('Error al cargar usuarios', 'error');
         } finally {
             setIsLoading(false);
@@ -67,9 +72,15 @@ export const useAdmin = () => {
     const fetchTables = async () => {
         setIsLoading(true);
         try {
-            // TODO: Implementar llamada a API
-            console.log('Fetching tables...');
+            const { data, error } = await supabase
+                .from('Table')
+                .select('*')
+                .order('number', { ascending: true });
+
+            if (error) throw error;
+            setTables(data as Table[]);
         } catch (error) {
+            console.error('Error fetching tables:', error);
             showToast('Error al cargar mesas', 'error');
         } finally {
             setIsLoading(false);
@@ -79,22 +90,36 @@ export const useAdmin = () => {
     const fetchProducts = async () => {
         setIsLoading(true);
         try {
-            // TODO: Implementar llamada a API
-            console.log('Fetching products...');
+            const { data, error } = await supabase
+                .from('Product')
+                .select('*')
+                .is('deletedAt', null)
+                .order('createdAt', { ascending: false });
+
+            if (error) throw error;
+            setProducts(data as Product[]);
         } catch (error) {
+            console.error('Error fetching products:', error);
             showToast('Error al cargar productos', 'error');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const fetchModifiers = async () => {
+    const fetchToppings = async () => {
         setIsLoading(true);
         try {
-            // TODO: Implementar llamada a API
-            console.log('Fetching modifiers...');
+            const { data, error } = await supabase
+                .from('Topping')
+                .select('*')
+                .eq('isActive', true)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+            setToppings(data as Topping[]);
         } catch (error) {
-            showToast('Error al cargar modificadores', 'error');
+            console.error('Error fetching toppings:', error);
+            showToast('Error al cargar toppings', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -104,7 +129,7 @@ export const useAdmin = () => {
         fetchUsers();
         fetchTables();
         fetchProducts();
-        fetchModifiers();
+        fetchToppings();
     }, []);
 
     return {
@@ -112,10 +137,10 @@ export const useAdmin = () => {
         users,
         tables,
         products,
-        modifiers,
+        toppings,
         fetchUsers,
         fetchTables,
         fetchProducts,
-        fetchModifiers,
+        fetchToppings,
     };
 };
