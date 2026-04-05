@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { User, Role } from '../types/user';
-import { login as loginService, getToken, saveToken, removeToken, saveUser, getUser, removeUser } from '../services/authService';
+import { login as loginService, logout as logoutService, getToken, saveToken, removeToken, saveUser, getUser, removeUser, checkFirstAdmin } from '../services/authService';
 
 interface AuthState {
     user: User | null;
@@ -8,11 +8,12 @@ interface AuthState {
     isLoading: boolean;
     error: string | null;
     login: (email: string, password: string) => Promise<boolean>;
-    logout: () => void;
+    logout: () => Promise<void>;
     setUser: (user: User) => void;
     setToken: (token: string) => void;
     initialize: () => void;
     hasRole: (role: Role) => boolean;
+    checkAdminExists: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>((set, get) => ({
@@ -35,7 +36,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         }
     },
 
-    logout: () => {
+    logout: async () => {
+        await logoutService();
         removeToken();
         removeUser();
         set({ user: null, token: null });
@@ -62,5 +64,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     hasRole: (role: Role) => {
         const { user } = get();
         return user?.role === role;
+    },
+
+    checkAdminExists: async () => {
+        const result = await checkFirstAdmin();
+        return result.hasAdmin;
     },
 }));
