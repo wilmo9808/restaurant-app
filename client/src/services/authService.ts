@@ -79,7 +79,7 @@ export const getProfile = async (token: string): Promise<User> => {
         .from('User')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
     if (userError) throw new Error(userError.message);
 
