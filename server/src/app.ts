@@ -17,6 +17,8 @@ dotenv.config();
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // Seguridad en cabeceras HTTP
 app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" } // Permite cargar recursos desde dominios diferentes (ej. Frontend Vite)
