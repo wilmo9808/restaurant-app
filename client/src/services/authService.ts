@@ -1,141 +1,49 @@
-import { supabase } from '../config/supabase';
+import { post, get } from './api';
 import { AuthResponse, LoginCredentials, RegisterCredentials, User } from '../types/user';
 
+interface ApiResponse<T> {
+    success: boolean;
+    message?: string;
+    data: T;
+}
+
 export const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-        email: credentials.email,
-        password: credentials.password,
-    });
-
-    if (error) throw new Error(error.message);
-
-    // Obtener datos del usuario desde la tabla "User"
-    const { data: userData, error: userError } = await supabase
-        .from('User')
-        .select('*')
-        .eq('email', credentials.email)
-        .single();
-
-    if (userError) throw new Error(userError.message);
+    const response = await post<ApiResponse<{ user: User; token: string }>>(
+        '/auth/login',
+        credentials
+    );
 
     return {
-        user: {
-            id: userData.id,
-            email: userData.email,
-            name: userData.name,
-            role: userData.role,
-            isActive: userData.isActive,
-            createdAt: userData.createdAt,
-        },
-        token: data.session?.access_token || '',
+        user: response.data.user,
+        token: response.data.token,
     };
 };
 
 export const register = async (credentials: RegisterCredentials): Promise<AuthResponse> => {
-    const { data, error } = await supabase.auth.signUp({
-        email: credentials.email,
-        password: credentials.password,
-        options: {
-            data: { name: credentials.name },
-        },
-    });
-
-    if (error) throw new Error(error.message);
-
-    // Crear registro en la tabla "User"
-    if (data.user) {
-        const { error: insertError } = await supabase.from('User').insert([
-            {
-                id: data.user.id,
-                email: credentials.email,
-                name: credentials.name,
-                role: credentials.role || 'WAITER',
-                isActive: true,
-            },
-        ]);
-
-        if (insertError) throw new Error(insertError.message);
-    }
+    const response = await post<ApiResponse<{ user: User; token: string }>>(
+        '/auth/register',
+        credentials
+    );
 
     return {
-        user: {
-            id: data.user?.id || '',
-            email: credentials.email,
-            name: credentials.name,
-            role: credentials.role || 'WAITER',
-            isActive: true,
-            createdAt: new Date(),
-        },
-        token: data.session?.access_token || '',
+        user: response.data.user,
+        token: response.data.token,
     };
 };
 
 export const getProfile = async (token: string): Promise<User> => {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) throw new Error(error?.message || 'Usuario no encontrado');
-
-    const { data: userData, error: userError } = await supabase
-        .from('User')
-        .select('*')
-        .eq('id', user.id)
-        .maybeSingle();
-
-    if (userError) throw new Error(userError.message);
-
-    return {
-        id: userData.id,
-        email: userData.email,
-        name: userData.name,
-        role: userData.role,
-        isActive: userData.isActive,
-        createdAt: userData.createdAt,
-    };
+    const response = await get<ApiResponse<User>>('/auth/profile', token);
+    return response.data;
 };
 
 export const checkFirstAdmin = async (): Promise<{ hasAdmin: boolean }> => {
-    const { data, error } = await supabase
-        .from('User')
-        .select('id')
-        .eq('role', 'SUPER_ADMIN')
-        .limit(1);
-
-    if (error) throw new Error(error.message);
-
-    return { hasAdmin: data && data.length > 0 };
+    const response = await get<ApiResponse<{ hasAdmin: boolean }>>('/auth/check-first-admin');
+    return response.data;
 };
 
 export const registerFirstAdmin = async (data: { name: string; email: string; password: string }): Promise<User> => {
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: {
-            data: { name: data.name },
-        },
-    });
-
-    if (authError) throw new Error(authError.message);
-
-    const { error: insertError } = await supabase.from('User').insert([
-        {
-            id: authData.user?.id,
-            email: data.email,
-            name: data.name,
-            role: 'SUPER_ADMIN',
-            isActive: true,
-        },
-    ]);
-
-    if (insertError) throw new Error(insertError.message);
-
-    return {
-        id: authData.user?.id || '',
-        email: data.email,
-        name: data.name,
-        role: 'SUPER_ADMIN',
-        isActive: true,
-        createdAt: new Date(),
-    };
+    const response = await post<ApiResponse<User>>('/auth/register-first-admin', data);
+    return response.data;
 };
 
 export const saveToken = (token: string): void => {
@@ -169,7 +77,6 @@ export const removeUser = (): void => {
 };
 
 export const logout = async (): Promise<void> => {
-    await supabase.auth.signOut();
     removeToken();
     removeUser();
 };
