@@ -24,6 +24,7 @@ const io = new Server(server, {
 // Middleware de autenticación para WebSocket
 io.use((socket, next) => {
     const token = socket.handshake.auth.token;
+
     if (!token) {
         console.log('❌ WebSocket: No token provided');
         return next(new Error('Authentication error'));
@@ -32,7 +33,7 @@ io.use((socket, next) => {
     try {
         const decoded = verifyToken(token);
         (socket as any).user = decoded;
-        console.log('✅ WebSocket autenticado:', decoded.email);
+        console.log('✅ WebSocket autenticado:', decoded.email, 'Role:', decoded.role);
         next();
     } catch (error) {
         console.log('❌ WebSocket: Invalid token');
