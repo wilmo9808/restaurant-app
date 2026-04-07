@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../../../store/authStore';
+import { supabase } from '../../../config/supabase';
 import { useUIStore } from '../../../store/uiStore';
 import { Button } from '../../../components/UI/Button';
 import { Modal } from '../../../components/UI/Modal';
@@ -13,7 +13,6 @@ interface Table {
 }
 
 export const TableManager: React.FC = () => {
-    const { token } = useAuthStore();
     const { showToast, setLoading, isLoading } = useUIStore();
     const [tables, setTables] = useState<Table[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -26,16 +25,15 @@ export const TableManager: React.FC = () => {
     const fetchTables = async () => {
         setLoading(true);
         try {
-            const response = await fetch('http://localhost:3000/api/admin/tables', {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
-            const data = await response.json();
-            if (data.success) {
-                setTables(data.data);
-            }
+            const { data, error } = await supabase
+                .from('Table')
+                .select('*')
+                .order('number', { ascending: true });
+
+            if (error) throw error;
+            setTables(data as Table[]);
         } catch (error) {
+            console.error('Error fetching tables:', error);
             showToast('Error al cargar mesas', 'error');
         } finally {
             setLoading(false);
@@ -71,31 +69,33 @@ export const TableManager: React.FC = () => {
 
         setLoading(true);
         try {
-            const url = editingTable
-                ? `http://localhost:3000/api/admin/tables/${editingTable.id}`
-                : 'http://localhost:3000/api/admin/tables';
-
-            const method = editingTable ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
-                method,
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(formData),
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                showToast(editingTable ? 'Mesa actualizada' : 'Mesa creada', 'success');
-                setIsModalOpen(false);
-                fetchTables();
+            let error;
+            if (editingTable) {
+                const { error: updateError } = await supabase
+                    .from('Table')
+                    .update({
+                        number: formData.number,
+                        isActive: formData.isActive,
+                    })
+                    .eq('id', editingTable.id);
+                error = updateError;
             } else {
-                showToast(data.message || 'Error', 'error');
+                const { error: insertError } = await supabase
+                    .from('Table')
+                    .insert([{
+                        number: formData.number,
+                        isActive: formData.isActive,
+                    }]);
+                error = insertError;
             }
+
+            if (error) throw error;
+
+            showToast(editingTable ? 'Mesa actualizada' : 'Mesa creada', 'success');
+            setIsModalOpen(false);
+            fetchTables();
         } catch (error) {
+            console.error('Error saving table:', error);
             showToast('Error de conexión', 'error');
         } finally {
             setLoading(false);
@@ -105,24 +105,17 @@ export const TableManager: React.FC = () => {
     const handleToggleActive = async (table: Table) => {
         setLoading(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/tables/${table.id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({ ...table, isActive: !table.isActive }),
-            });
+            const { error } = await supabase
+                .from('Table')
+                .update({ isActive: !table.isActive })
+                .eq('id', table.id);
 
-            const data = await response.json();
+            if (error) throw error;
 
-            if (data.success) {
-                showToast('Estado actualizado', 'success');
-                fetchTables();
-            } else {
-                showToast(data.message || 'Error', 'error');
-            }
+            showToast('Estado actualizado', 'success');
+            fetchTables();
         } catch (error) {
+            console.error('Error toggling table:', error);
             showToast('Error de conexión', 'error');
         } finally {
             setLoading(false);
@@ -134,22 +127,17 @@ export const TableManager: React.FC = () => {
 
         setLoading(true);
         try {
-            const response = await fetch(`http://localhost:3000/api/admin/tables/${tableId}`, {
-                method: 'DELETE',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            const { error } = await supabase
+                .from('Table')
+                .delete()
+                .eq('id', tableId);
 
-            const data = await response.json();
+            if (error) throw error;
 
-            if (data.success) {
-                showToast('Mesa eliminada', 'success');
-                fetchTables();
-            } else {
-                showToast(data.message || 'Error', 'error');
-            }
+            showToast('Mesa eliminada', 'success');
+            fetchTables();
         } catch (error) {
+            console.error('Error deleting table:', error);
             showToast('Error de conexión', 'error');
         } finally {
             setLoading(false);

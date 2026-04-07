@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuthStore } from '../../../store/authStore';
+import { supabase } from '../../../config/supabase';
 import { useUIStore } from '../../../store/uiStore';
 
 interface Table {
@@ -21,11 +21,15 @@ export const TableSelector: React.FC<TableSelectorProps> = ({ selectedTable, onS
     useEffect(() => {
         const fetchTables = async () => {
             try {
-                const response = await fetch('http://localhost:3000/api/tables/active');
-                const data = await response.json();
-                if (data.success) {
-                    setTables(data.data.filter((t: Table) => t.isActive));
-                }
+                const { data, error } = await supabase
+                    .from('Table')
+                    .select('*')
+                    .eq('isActive', true)
+                    .order('number', { ascending: true });
+
+                if (error) throw error;
+
+                setTables(data as Table[]);
             } catch (error) {
                 console.error('Error al cargar mesas:', error);
                 showToast('Error al cargar mesas', 'error');
@@ -35,7 +39,7 @@ export const TableSelector: React.FC<TableSelectorProps> = ({ selectedTable, onS
         };
 
         fetchTables();
-    }, []);
+    }, [showToast]);
 
     if (isLoading) {
         return (

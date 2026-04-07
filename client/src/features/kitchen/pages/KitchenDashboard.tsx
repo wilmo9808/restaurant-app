@@ -2,15 +2,14 @@ import React, { useState } from 'react';
 import { MainLayout } from '../../../components/Layout/MainLayout';
 import { OrderQueue } from '../components/OrderQueue';
 import { useOrders } from '../../../hooks/useOrders';
-import { useSocket } from '../../../hooks/useSocket';
 import { useUIStore } from '../../../store/uiStore';
+import { supabase } from '../../../config/supabase';
 
 type TabType = 'pending' | 'in-progress' | 'ready';
 
 export const KitchenDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<TabType>('pending');
     const { orders, isLoading, updateStatus, isUpdating } = useOrders();
-    const { emit } = useSocket();
     const { showToast } = useUIStore();
 
     const pendingOrders = orders.filter(o => o.status === 'PENDING');
@@ -22,9 +21,10 @@ export const KitchenDashboard: React.FC = () => {
         showToast('Pedido iniciado', 'info');
     };
 
-    const handleCompleteOrder = (orderId: string) => {
-        updateStatus({ id: orderId, status: 'READY' });
-        emit('order-ready', orderId);
+    const handleCompleteOrder = async (orderId: string) => {
+        await updateStatus({ id: orderId, status: 'READY' });
+
+        // Actualizar en tiempo real para caja (se puede implementar con suscripción de Supabase)
         showToast('Pedido listo para servir', 'success');
     };
 

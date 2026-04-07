@@ -1,0 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const express_1 = require("express");
+const reportController_1 = require("../controllers/reportController");
+const authMiddleware_1 = require("../middleware/authMiddleware");
+const roleMiddleware_1 = require("../middleware/roleMiddleware");
+const router = (0, express_1.Router)();
+router.get('/daily', authMiddleware_1.authMiddleware, roleMiddleware_1.isCashier, reportController_1.getDailyReport);
+router.get('/totals', authMiddleware_1.authMiddleware, roleMiddleware_1.isCashier, reportController_1.getTotals);
+router.get('/export-excel', authMiddleware_1.authMiddleware, roleMiddleware_1.isCashier, reportController_1.exportDailyReportToExcel);
+exports.default = router;

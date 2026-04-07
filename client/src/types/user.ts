@@ -1,10 +1,11 @@
-export type Role = 'WAITER' | 'CHEF' | 'CASHIER';
+export type Role = 'WAITER' | 'CHEF' | 'CASHIER' | 'SUPER_ADMIN';
 
 export interface User {
     id: string;
     email: string;
     name: string;
     role: Role;
+    isActive: boolean;
     createdAt: Date;
 }
 

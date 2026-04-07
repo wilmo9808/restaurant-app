@@ -10,7 +10,7 @@ export default defineConfig({
     build: {
         outDir: 'dist',
         sourcemap: false,
-        minify: 'terser',
+        minify: 'esbuild',
         chunkSizeWarningLimit: 1000
     },
     // Base URL para producción (si se despliega en subruta)

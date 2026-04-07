@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../../../components/UI/Modal';
+import { supabase } from '../../../config/supabase';
 import { useUIStore } from '../../../store/uiStore';
 import { Product } from '../../../types/product';
 import { formatCurrency } from '../../../utils/formatters';
@@ -38,11 +39,15 @@ export const ToppingsModal: React.FC<ToppingsModalProps> = ({
     const fetchToppings = async () => {
         setIsLoadingToppings(true);
         try {
-            const response = await fetch('http://localhost:3000/api/toppings/active');
-            const data = await response.json();
-            if (data.success) {
-                setToppings(data.data);
-            }
+            const { data, error } = await supabase
+                .from('Topping')
+                .select('*')
+                .eq('isActive', true)
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            setToppings(data as Topping[]);
         } catch (error) {
             console.error('Error al cargar toppings:', error);
             showToast('Error al cargar toppings', 'error');

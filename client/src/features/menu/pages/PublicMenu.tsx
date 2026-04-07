@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Utensils, Coffee, Beef, Pizza, Cake, Wine, Martini, Beer, Coffee as CoffeeIcon, Soup, Menu as MenuIcon } from 'lucide-react';
 import { CategorySection } from '../components/CategorySection';
 import { Product } from '../../../types/product';
+import { supabase } from '../../../config/supabase';
 
 interface CategoryGroup {
     name: string;
@@ -24,13 +25,16 @@ export const PublicMenu: React.FC = () => {
 
     const fetchMenu = async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/public/menu');
-            const data = await response.json();
-            if (data.success) {
-                setProducts(data.data);
-            } else {
-                setError('Error al cargar el menú');
-            }
+            const { data, error } = await supabase
+                .from('Product')
+                .select('*')
+                .eq('isActive', true)
+                .is('deletedAt', null)
+                .order('createdAt', { ascending: false });
+
+            if (error) throw error;
+
+            setProducts(data as Product[]);
         } catch (error) {
             console.error('Error fetching menu:', error);
             setError('Error de conexión');
@@ -41,10 +45,16 @@ export const PublicMenu: React.FC = () => {
 
     const fetchRestaurantName = async () => {
         try {
-            const response = await fetch('http://localhost:3000/api/public/settings/restaurant_name');
-            const data = await response.json();
-            if (data.success && data.data) {
-                setRestaurantName(data.data);
+            const { data, error } = await supabase
+                .from('Setting')
+                .select('value')
+                .eq('key', 'restaurant_name')
+                .single();
+
+            if (error) throw error;
+
+            if (data && data.value) {
+                setRestaurantName(data.value);
             }
         } catch (error) {
             console.error('Error fetching restaurant name:', error);
@@ -56,7 +66,7 @@ export const PublicMenu: React.FC = () => {
     const groupedProducts: CategoryGroup[] = categories.map(cat => ({
         name: cat,
         products: products.filter(p => p.category === cat),
-        icon: null, // Iconos se manejan en otro lado o se omiten en este diseño
+        icon: null,
     }));
 
     if (isLoading) {
@@ -88,7 +98,6 @@ export const PublicMenu: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#0a0a0a] text-gray-200 overflow-x-hidden font-sans">
-            {/* Header Tipo Barra de Navegación Plana */}
             <div className="bg-[#0a0a0a] text-white py-6 px-6 flex items-center justify-between border-b border-zinc-900 sticky top-0 z-50">
                 <button className="text-gray-400 hover:text-[#FFC107] transition-colors">
                     <MenuIcon size={28} />
@@ -105,19 +114,14 @@ export const PublicMenu: React.FC = () => {
                 </div>
             </div>
 
-            {/* Aviso de Mesa si existe */}
-            {
-                tableId && (
-                    <div className="text-center py-2 bg-[#FFC107]/10 text-[#FFC107] text-xs font-bold tracking-[0.3em] uppercase border-b border-[#FFC107]/20 backdrop-blur-sm sticky top-[77px] z-40">
-                        MESA #{tableId}
-                    </div>
-                )
-            }
+            {tableId && (
+                <div className="text-center py-2 bg-[#FFC107]/10 text-[#FFC107] text-xs font-bold tracking-[0.3em] uppercase border-b border-[#FFC107]/20 backdrop-blur-sm sticky top-[77px] z-40">
+                    MESA #{tableId}
+                </div>
+            )}
 
-            {/* Sub-header decorativo o espacio */}
             <div className="py-12"></div>
 
-            {/* Menú (Categorías Verticales -> Carruseles Horizontales) */}
             <div className="max-w-[100vw] mx-auto pb-16">
                 {groupedProducts.map((category) => (
                     <CategorySection
@@ -135,14 +139,12 @@ export const PublicMenu: React.FC = () => {
                 )}
             </div>
 
-            {/* Footer */}
             <div className="bg-[#050505] border-t border-zinc-900 text-zinc-600 py-12 px-6 text-center text-xs tracking-widest uppercase">
                 <p className="mb-2">© {new Date().getFullYear()} ORDENAYA</p>
                 <p className="opacity-50">Todos los derechos reservados</p>
             </div>
 
-            {/* Background Texture/Noise Overlay Optional */}
             <div className="fixed inset-0 opacity-[0.03] pointer-events-none z-0" style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")' }}></div>
-        </div >
+        </div>
     );
 };
