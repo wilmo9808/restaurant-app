@@ -22,12 +22,13 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false
 
-  # Frontend Estático
-  - type: static
+  # Frontend (Web Service que sirve archivos estáticos)
+  - type: web
     name: ordenaya-web
+    runtime: image
     rootDir: client
     buildCommand: npm install && npm run build
-    publishPath: dist
+    startCommand: npx serve -s dist -l 3000
     envVars:
       - key: VITE_API_URL
         value: https://ordenaya-api.onrender.com/api
