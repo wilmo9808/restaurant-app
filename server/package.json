@@ -10,10 +10,9 @@
     "prisma:push": "prisma db push",
     "prisma:seed": "ts-node prisma/seed.ts"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "engines": {
+    "node": ">=20.0.0 <22.0.0"
+  },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
   },
