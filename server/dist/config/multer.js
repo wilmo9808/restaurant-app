@@ -5,22 +5,22 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.uploadProductImage = exports.upload = void 0;
 const multer_1 = __importDefault(require("multer"));
+const multer_storage_cloudinary_1 = require("multer-storage-cloudinary");
+const cloudinary_1 = __importDefault(require("./cloudinary"));
 const path_1 = __importDefault(require("path"));
-const fs_1 = __importDefault(require("fs"));
-// Crear carpeta uploads si no existe
-const uploadDir = path_1.default.join(__dirname, '../../uploads');
-if (!fs_1.default.existsSync(uploadDir)) {
-    fs_1.default.mkdirSync(uploadDir, { recursive: true });
-}
-// Configuración de almacenamiento
-const storage = multer_1.default.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
+// Configuración de almacenamiento en Cloudinary
+const storage = new multer_storage_cloudinary_1.CloudinaryStorage({
+    cloudinary: cloudinary_1.default,
+    params: async (req, file) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         const ext = path_1.default.extname(file.originalname);
-        cb(null, `product-${uniqueSuffix}${ext}`);
+        const publicId = `products/product-${uniqueSuffix}${ext}`;
+        return {
+            folder: 'ordenaya/products',
+            public_id: `product-${uniqueSuffix}`,
+            format: 'jpg',
+            transformation: [{ width: 500, height: 500, crop: 'limit' }]
+        };
     },
 });
 // Filtro para solo imágenes

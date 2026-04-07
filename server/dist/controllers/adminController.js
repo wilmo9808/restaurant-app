@@ -212,7 +212,8 @@ const uploadProductImage = async (req, res) => {
             res.status(400).json({ success: false, message: 'No se recibió ninguna imagen' });
             return;
         }
-        const imageUrl = `/uploads/${req.file.filename}`;
+        // Obtener la URL de Cloudinary desde multer-storage-cloudinary
+        const imageUrl = req.file.path;
         res.status(200).json({ success: true, data: { imageUrl } });
     }
     catch (error) {

@@ -19,9 +19,10 @@ const helmet_1 = __importDefault(require("helmet"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
 dotenv_1.default.config();
 const app = (0, express_1.default)();
+app.set('trust proxy', 1);
 // Seguridad en cabeceras HTTP
 app.use((0, helmet_1.default)({
-    crossOriginResourcePolicy: { policy: "cross-origin" } // Permite cargar recursos desde dominios diferentes (ej. Frontend Vite)
+    crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 // Límite de peticiones global (200 reqs / 15 mins)
 const globalLimiter = (0, express_rate_limit_1.default)({
@@ -30,16 +31,34 @@ const globalLimiter = (0, express_rate_limit_1.default)({
     message: { success: false, message: 'Demasiadas peticiones desde esta IP, por favor intenta más tarde.' }
 });
 app.use(globalLimiter);
+// Configurar CORS para múltiples orígenes
+const allowedOrigins = [
+    process.env.CLIENT_URL || 'http://localhost:5173',
+    'https://ordenaya-web.onrender.com', // Frontend en producción
+    'https://ordenaya-api.onrender.com', // Backend en producción
+].filter(Boolean);
 app.use((0, cors_1.default)({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        if (!origin)
+            return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        }
+        else {
+            console.log(`🚫 CORS bloqueado: ${origin}`);
+            callback(new Error('No permitido por CORS'));
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express_1.default.json());
 app.use(express_1.default.urlencoded({ extended: true }));
-// Servir archivos estáticos (imágenes de la carpeta uploads)
-app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../uploads')));
+// Servir archivos estáticos (solo en desarrollo, en producción usar Cloudinary)
+if (process.env.NODE_ENV !== 'production') {
+    app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../uploads')));
+}
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Servidor funcionando' });
 });
