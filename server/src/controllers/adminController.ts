@@ -152,6 +152,9 @@ export const createTable = async (req: Request, res: Response): Promise<void> =>
             },
         });
 
+        const io = getIO();
+        io.emit(SOCKET_EVENTS.TABLES_UPDATED, { action: 'create', table });
+
         res.status(201).json({ success: true, data: table });
     } catch (error: any) {
         res.status(500).json({ success: false, message: getErrorMessage(error, 'Error interno del servidor') });
@@ -171,6 +174,9 @@ export const updateTable = async (req: Request, res: Response): Promise<void> =>
             },
         });
 
+        const io = getIO();
+        io.emit(SOCKET_EVENTS.TABLES_UPDATED, { action: 'update', table });
+
         res.status(200).json({ success: true, data: table });
     } catch (error: any) {
         res.status(500).json({ success: false, message: getErrorMessage(error, 'Error interno del servidor') });
@@ -184,6 +190,9 @@ export const deleteTable = async (req: Request, res: Response): Promise<void> =>
         await prisma.table.delete({
             where: { id: parseInt(id) },
         });
+
+        const io = getIO();
+        io.emit(SOCKET_EVENTS.TABLES_UPDATED, { action: 'delete', tableId: id });
 
         res.status(200).json({ success: true, message: 'Mesa eliminada' });
     } catch (error: any) {

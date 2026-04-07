@@ -1,42 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useUIStore } from '../../../store/uiStore';
-
-interface Table {
-    id: number;
-    number: number;
-    isActive: boolean;
-}
+import { useTables } from '../../../hooks/useTables';
 
 interface TableSelectorProps {
     selectedTable: number | null;
     onSelectTable: (tableNumber: number) => void;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
 export const TableSelector: React.FC<TableSelectorProps> = ({ selectedTable, onSelectTable }) => {
     const { showToast } = useUIStore();
-    const [tables, setTables] = useState<Table[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const { tables, isLoading, error } = useTables();
 
-    useEffect(() => {
-        const fetchTables = async () => {
-            try {
-                const response = await fetch(`${API_URL}/tables/active`);
-                const data = await response.json();
-                if (data.success) {
-                    setTables(data.data);
-                }
-            } catch (error) {
-                console.error('Error al cargar mesas:', error);
-                showToast('Error al cargar mesas', 'error');
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchTables();
-    }, [showToast]);
+    // Mostrar error si existe
+    if (error) {
+        showToast(error, 'error');
+    }
 
     if (isLoading) {
         return (
