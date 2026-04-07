@@ -1,22 +1,28 @@
+# Exported from Render on 2026-04-07T19:26:51Z
+version: "1"
 services:
-  - type: web
-    name: ordenaya-api
-    runtime: node
-    rootDir: server
-    buildCommand: npm install --omit=dev
-    startCommand: npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        value: postgresql://postgres.vxjzrybssqhjifzaprpl:OwGXZlidILHXE4bi@aws-1-us-east-1.pooler.supabase.com:5432/postgres
-      - key: JWT_SECRET
-        generateValue: true
-      - key: CLIENT_URL
-        value: https://ordenaya-web.onrender.com
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
+- type: web
+  name: ordenaya-api
+  runtime: node
+  repo: https://github.com/wilmo9808/restaurant-app
+  plan: starter
+  envVars:
+  - key: CLOUDINARY_API_SECRET
+    sync: false
+  - key: CLOUDINARY_API_KEY
+    sync: false
+  - key: CLOUDINARY_CLOUD_NAME
+    sync: false
+  - key: CLIENT_URL
+    sync: false
+  - key: JWT_SECRET
+    sync: false
+  - key: DATABASE_URL
+    sync: false
+  - key: NODE_ENV
+    sync: false
+  region: oregon
+  buildCommand: npm install --omit=dev
+  startCommand: npm start
+  autoDeployTrigger: commit
+  rootDir: server
