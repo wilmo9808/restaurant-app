@@ -19,7 +19,7 @@ const app = express();
 
 // Seguridad en cabeceras HTTP
 app.use(helmet({
-    crossOriginResourcePolicy: { policy: "cross-origin" } // Permite cargar recursos desde dominios diferentes (ej. Frontend Vite)
+    crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // Límite de peticiones global (200 reqs / 15 mins)
@@ -30,8 +30,23 @@ const globalLimiter = rateLimit({
 });
 app.use(globalLimiter);
 
+// Configurar CORS para múltiples orígenes
+const allowedOrigins = [
+    process.env.CLIENT_URL || 'http://localhost:5173',
+    'https://ordenaya-web.onrender.com',  // Frontend en producción
+    'https://ordenaya-api.onrender.com',  // Backend en producción
+].filter(Boolean);
+
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.log(`🚫 CORS bloqueado: ${origin}`);
+            callback(new Error('No permitido por CORS'));
+        }
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization']
@@ -40,8 +55,10 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir archivos estáticos (imágenes de la carpeta uploads)
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Servir archivos estáticos (solo en desarrollo, en producción usar Cloudinary)
+if (process.env.NODE_ENV !== 'production') {
+    app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+}
 
 app.get('/health', (req, res) => {
     res.status(200).json({ status: 'ok', message: 'Servidor funcionando' });

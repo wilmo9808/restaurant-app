@@ -137,7 +137,7 @@ export const PublicMenu: React.FC = () => {
 
             {/* Footer */}
             <div className="bg-[#050505] border-t border-zinc-900 text-zinc-600 py-12 px-6 text-center text-xs tracking-widest uppercase">
-                <p className="mb-2">© {new Date().getFullYear()} {restaurantName.toUpperCase()}</p>
+                <p className="mb-2">© {new Date().getFullYear()} ORDENAYA</p>
                 <p className="opacity-50">Todos los derechos reservados</p>
             </div>
 

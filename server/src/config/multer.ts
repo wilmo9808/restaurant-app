@@ -1,22 +1,22 @@
 import multer from 'multer';
+import { CloudinaryStorage } from 'multer-storage-cloudinary';
+import cloudinary from './cloudinary';
 import path from 'path';
-import fs from 'fs';
 
-// Crear carpeta uploads si no existe
-const uploadDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configuración de almacenamiento
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadDir);
-    },
-    filename: (req, file, cb) => {
+// Configuración de almacenamiento en Cloudinary
+const storage = new CloudinaryStorage({
+    cloudinary: cloudinary,
+    params: async (req, file) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         const ext = path.extname(file.originalname);
-        cb(null, `product-${uniqueSuffix}${ext}`);
+        const publicId = `products/product-${uniqueSuffix}${ext}`;
+
+        return {
+            folder: 'ordenaya/products',
+            public_id: `product-${uniqueSuffix}`,
+            format: 'jpg',
+            transformation: [{ width: 500, height: 500, crop: 'limit' }]
+        };
     },
 });
 

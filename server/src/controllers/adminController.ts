@@ -216,7 +216,9 @@ export const uploadProductImage = async (req: Request, res: Response): Promise<v
             return;
         }
 
-        const imageUrl = `/uploads/${req.file.filename}`;
+        // Obtener la URL de Cloudinary desde multer-storage-cloudinary
+        const imageUrl = (req.file as any).path;
+
         res.status(200).json({ success: true, data: { imageUrl } });
     } catch (error: any) {
         res.status(500).json({ success: false, message: getErrorMessage(error, 'Error interno del servidor') });

@@ -12,5 +12,7 @@ export default defineConfig({
         sourcemap: false,
         minify: 'terser',
         chunkSizeWarningLimit: 1000
-    }
+    },
+    // Base URL para producción (si se despliega en subruta)
+    base: '/',
 })
