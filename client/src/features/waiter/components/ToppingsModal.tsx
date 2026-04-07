@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../../../components/UI/Modal';
-import { useAuthStore } from '../../../store/authStore';
 import { useUIStore } from '../../../store/uiStore';
 import { Product } from '../../../types/product';
 import { formatCurrency } from '../../../utils/formatters';
@@ -27,29 +26,25 @@ export const ToppingsModal: React.FC<ToppingsModalProps> = ({
     onClose,
     onConfirm,
 }) => {
-    const { token } = useAuthStore();
     const { showToast } = useUIStore();
     const [toppings, setToppings] = useState<Topping[]>([]);
     const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
     const [isLoadingToppings, setIsLoadingToppings] = useState(true);
 
     useEffect(() => {
-        if (isOpen && token) {
+        if (isOpen) {
             fetchToppings();
         }
-    }, [isOpen, token]);
+    }, [isOpen]);
 
     const fetchToppings = async () => {
         setIsLoadingToppings(true);
         try {
-            const response = await fetch(`${API_URL}/admin/toppings`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                },
-            });
+            // Usar endpoint público, no requiere autenticación
+            const response = await fetch(`${API_URL}/toppings/active`);
             const data = await response.json();
             if (data.success) {
-                setToppings(data.data.filter((t: Topping) => t.isActive));
+                setToppings(data.data);
             }
         } catch (error) {
             console.error('Error al cargar toppings:', error);
