@@ -411,6 +411,9 @@ export const createTopping = async (req: Request, res: Response): Promise<void> 
             },
         });
 
+        const io = getIO();
+        io.emit(SOCKET_EVENTS.MENU_UPDATED, { action: 'create', topping });
+
         res.status(201).json({ success: true, data: topping });
     } catch (error: any) {
         res.status(500).json({ success: false, message: getErrorMessage(error, 'Error interno del servidor') });
@@ -431,6 +434,9 @@ export const updateTopping = async (req: Request, res: Response): Promise<void> 
             },
         });
 
+        const io = getIO();
+        io.emit(SOCKET_EVENTS.MENU_UPDATED, { action: 'update', topping });
+
         res.status(200).json({ success: true, data: topping });
     } catch (error: any) {
         res.status(500).json({ success: false, message: getErrorMessage(error, 'Error interno del servidor') });
@@ -444,6 +450,9 @@ export const deleteTopping = async (req: Request, res: Response): Promise<void> 
         await prisma.topping.delete({
             where: { id },
         });
+
+        const io = getIO();
+        io.emit(SOCKET_EVENTS.MENU_UPDATED, { action: 'delete', toppingId: id });
 
         res.status(200).json({ success: true, message: 'Topping eliminado' });
     } catch (error: any) {

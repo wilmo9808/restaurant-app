@@ -6,15 +6,15 @@ import { OrderSummary } from '../components/OrderSummary';
 import { useOrderStore } from '../../../store/orderStore';
 import { useMenu } from '../../../hooks/useMenu';
 import { useAuthStore } from '../../../store/authStore';
-import { OrderItemInput } from '../../../types/order';
-import { Button } from '../../../components/UI/Button';
+import { useSocket } from '../../../hooks/useSocket';
 import { useUIStore } from '../../../store/uiStore';
 
 export const WaiterDashboard: React.FC = () => {
     const [selectedTable, setSelectedTable] = useState<number | null>(null);
     const { currentOrder, clearCurrentOrder, addItemToOrder, removeItemFromOrder, updateItemQuantity } = useOrderStore();
     const { menu, isLoading: menuLoading } = useMenu();
-    const { user } = useAuthStore();
+    const { token, user } = useAuthStore();
+    const { emit } = useSocket();
     const { showToast, setLoading, isLoading } = useUIStore();
 
     const handleSelectTable = (tableNumber: number) => {
@@ -53,13 +53,6 @@ export const WaiterDashboard: React.FC = () => {
         setLoading(true);
 
         try {
-            // Obtener el usuario autenticado
-            const { data: { user: authUser } } = await supabase.auth.getUser();
-
-            if (!authUser) {
-                throw new Error('Usuario no autenticado');
-            }
-
             // Calcular el total correctamente (producto + toppings)
             const itemsWithTotal = currentOrder.items.map(item => {
                 const toppingsTotal = (item.modifications || []).reduce((sum: number, t: any) => sum + t.price, 0);
@@ -69,44 +62,30 @@ export const WaiterDashboard: React.FC = () => {
 
             const totalOrder = itemsWithTotal.reduce((sum, item) => sum + item.itemTotal, 0);
 
-            // Crear la orden en Supabase
-            const { data: orderData, error: orderError } = await supabase
-                .from('Order')
-                .insert([{
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
                     tableNumber: selectedTable,
+                    items: currentOrder.items,
                     total: totalOrder,
                     notes: notes || '',
-                    userId: authUser.id,
-                    status: 'PENDING',
-                }])
-                .select()
-                .single();
-
-            if (orderError) throw orderError;
-
-            // Crear los items de la orden
-            const orderItems = currentOrder.items.map(item => {
-                const toppingsTotal = (item.modifications || []).reduce((sum: number, t: any) => sum + t.price, 0);
-                const subtotal = (item.price + toppingsTotal) * item.quantity;
-
-                return {
-                    orderId: orderData.id,
-                    productId: item.productId,
-                    quantity: item.quantity,
-                    subtotal: subtotal,
-                    toppings: item.modifications ? JSON.stringify(item.modifications) : null,
-                };
+                }),
             });
 
-            const { error: itemsError } = await supabase
-                .from('OrderItem')
-                .insert(orderItems);
+            const data = await response.json();
 
-            if (itemsError) throw itemsError;
-
-            showToast(notes ? 'Pedido con notas enviado a cocina' : 'Pedido enviado a cocina', 'success');
-            clearCurrentOrder();
-            setSelectedTable(null);
+            if (response.ok) {
+                emit('new-order', data.data);
+                showToast(notes ? 'Pedido con notas enviado a cocina' : 'Pedido enviado a cocina', 'success');
+                clearCurrentOrder();
+                setSelectedTable(null);
+            } else {
+                showToast(data.message || 'Error al enviar pedido', 'error');
+            }
         } catch (error) {
             console.error('Error al enviar pedido:', error);
             showToast('Error de conexión', 'error');

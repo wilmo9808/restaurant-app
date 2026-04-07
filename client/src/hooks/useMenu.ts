@@ -1,11 +1,14 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { useAuthStore } from '../store/authStore';
 import { getMenu, getProductsByCategory } from '../services/menuService';
 import { Product } from '../types/product';
+import { useSocket } from './useSocket';
 
 export const useMenu = (category?: string) => {
     const { token } = useAuthStore();
     const queryClient = useQueryClient();
+    const { socket, isConnected } = useSocket();
 
     const { data, isLoading, error, refetch } = useQuery({
         queryKey: ['menu', category],
@@ -18,6 +21,23 @@ export const useMenu = (category?: string) => {
         },
         enabled: !!token,
     });
+
+    // Suscribirse a eventos de actualización del menú
+    useEffect(() => {
+        if (!socket || !isConnected) return;
+
+        const handleMenuUpdated = () => {
+            console.log('Menú actualizado, recargando...');
+            queryClient.invalidateQueries({ queryKey: ['menu'] });
+            refetch();
+        };
+
+        socket.on('menu-updated', handleMenuUpdated);
+
+        return () => {
+            socket.off('menu-updated', handleMenuUpdated);
+        };
+    }, [socket, isConnected, queryClient, refetch]);
 
     const getProductById = (id: string): Product | undefined => {
         return data?.find((product) => product.id === id);
