@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../config/supabase';
 import { Product } from '../types/product';
 
 interface PublicMenuState {
@@ -20,21 +19,22 @@ export const usePublicMenu = () => {
     const fetchMenu = async () => {
         setState(prev => ({ ...prev, isLoading: true, error: null }));
         try {
-            // Obtener productos activos desde Supabase
-            const { data, error } = await supabase
-                .from('Product')
-                .select('*')
-                .eq('isActive', true)
-                .is('deletedAt', null)
-                .order('createdAt', { ascending: false });
+            const response = await fetch('http://localhost:3000/api/public/menu');
+            const data = await response.json();
 
-            if (error) throw error;
-
-            setState(prev => ({
-                ...prev,
-                products: data as Product[],
-                isLoading: false,
-            }));
+            if (data.success) {
+                setState(prev => ({
+                    ...prev,
+                    products: data.data,
+                    isLoading: false,
+                }));
+            } else {
+                setState(prev => ({
+                    ...prev,
+                    error: 'Error al cargar el menú',
+                    isLoading: false,
+                }));
+            }
         } catch (error) {
             console.error('Error fetching menu:', error);
             setState(prev => ({
@@ -47,16 +47,11 @@ export const usePublicMenu = () => {
 
     const fetchRestaurantName = async () => {
         try {
-            const { data, error } = await supabase
-                .from('Setting')
-                .select('value')
-                .eq('key', 'restaurant_name')
-                .single();
+            const response = await fetch('http://localhost:3000/api/public/settings/restaurant_name');
+            const data = await response.json();
 
-            if (error) throw error;
-
-            if (data && data.value) {
-                setState(prev => ({ ...prev, restaurantName: data.value }));
+            if (data.success && data.data) {
+                setState(prev => ({ ...prev, restaurantName: data.data }));
             }
         } catch (error) {
             console.error('Error fetching restaurant name:', error);

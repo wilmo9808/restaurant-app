@@ -3,13 +3,14 @@ import { useParams } from 'react-router-dom';
 import { Utensils, Coffee, Beef, Pizza, Cake, Wine, Martini, Beer, Coffee as CoffeeIcon, Soup, Menu as MenuIcon } from 'lucide-react';
 import { CategorySection } from '../components/CategorySection';
 import { Product } from '../../../types/product';
-import { supabase } from '../../../config/supabase';
 
 interface CategoryGroup {
     name: string;
     products: Product[];
     icon: React.ReactNode;
 }
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export const PublicMenu: React.FC = () => {
     const { tableId } = useParams<{ tableId?: string }>();
@@ -25,16 +26,13 @@ export const PublicMenu: React.FC = () => {
 
     const fetchMenu = async () => {
         try {
-            const { data, error } = await supabase
-                .from('Product')
-                .select('*')
-                .eq('isActive', true)
-                .is('deletedAt', null)
-                .order('createdAt', { ascending: false });
-
-            if (error) throw error;
-
-            setProducts(data as Product[]);
+            const response = await fetch(`${API_URL}/public/menu`);
+            const data = await response.json();
+            if (data.success) {
+                setProducts(data.data);
+            } else {
+                setError('Error al cargar el menú');
+            }
         } catch (error) {
             console.error('Error fetching menu:', error);
             setError('Error de conexión');
@@ -45,16 +43,10 @@ export const PublicMenu: React.FC = () => {
 
     const fetchRestaurantName = async () => {
         try {
-            const { data, error } = await supabase
-                .from('Setting')
-                .select('value')
-                .eq('key', 'restaurant_name')
-                .single();
-
-            if (error) throw error;
-
-            if (data && data.value) {
-                setRestaurantName(data.value);
+            const response = await fetch(`${API_URL}/public/settings/restaurant_name`);
+            const data = await response.json();
+            if (data.success && data.data) {
+                setRestaurantName(data.data);
             }
         } catch (error) {
             console.error('Error fetching restaurant name:', error);

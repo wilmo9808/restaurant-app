@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '../config/supabase';
+import { useAuthStore } from '../store/authStore';
+import { getToppings } from '../services/adminService';
 
 export interface Topping {
     id: string;
@@ -9,21 +10,16 @@ export interface Topping {
     createdAt: string;
 }
 
-const getToppingsFromSupabase = async (): Promise<Topping[]> => {
-    const { data, error } = await supabase
-        .from('Topping')
-        .select('*')
-        .eq('isActive', true)
-        .order('name', { ascending: true });
-
-    if (error) throw new Error(error.message);
-    return data as Topping[];
-};
-
 export const useToppings = () => {
+    const { token } = useAuthStore();
+
     const { data, isLoading, error, refetch } = useQuery({
         queryKey: ['toppings'],
-        queryFn: () => getToppingsFromSupabase(),
+        queryFn: () => {
+            if (!token) throw new Error('No autenticado');
+            return getToppings(token);
+        },
+        enabled: !!token,
     });
 
     const getActiveToppings = (): Topping[] => {

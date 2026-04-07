@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../config/supabase';
 import { useUIStore } from '../../../store/uiStore';
 
 interface Table {
@@ -13,6 +12,8 @@ interface TableSelectorProps {
     onSelectTable: (tableNumber: number) => void;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 export const TableSelector: React.FC<TableSelectorProps> = ({ selectedTable, onSelectTable }) => {
     const { showToast } = useUIStore();
     const [tables, setTables] = useState<Table[]>([]);
@@ -21,15 +22,11 @@ export const TableSelector: React.FC<TableSelectorProps> = ({ selectedTable, onS
     useEffect(() => {
         const fetchTables = async () => {
             try {
-                const { data, error } = await supabase
-                    .from('Table')
-                    .select('*')
-                    .eq('isActive', true)
-                    .order('number', { ascending: true });
-
-                if (error) throw error;
-
-                setTables(data as Table[]);
+                const response = await fetch(`${API_URL}/tables/active`);
+                const data = await response.json();
+                if (data.success) {
+                    setTables(data.data);
+                }
             } catch (error) {
                 console.error('Error al cargar mesas:', error);
                 showToast('Error al cargar mesas', 'error');

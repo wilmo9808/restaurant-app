@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../config/supabase';
+import { useAuthStore } from '../../../store/authStore';
 import { useUIStore } from '../../../store/uiStore';
 import { Button } from '../../../components/UI/Button';
 import { Modal } from '../../../components/UI/Modal';
@@ -15,7 +15,10 @@ interface User {
     createdAt: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 export const UserManager: React.FC = () => {
+    const { token } = useAuthStore();
     const { showToast, setLoading, isLoading } = useUIStore();
     const [users, setUsers] = useState<User[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,13 +34,15 @@ export const UserManager: React.FC = () => {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('User')
-                .select('*')
-                .order('createdAt', { ascending: false });
-
-            if (error) throw error;
-            setUsers(data as User[]);
+            const response = await fetch(`${API_URL}/admin/users`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                setUsers(data.data);
+            }
         } catch (error) {
             console.error('Error fetching users:', error);
             showToast('Error al cargar usuarios', 'error');
@@ -47,8 +52,10 @@ export const UserManager: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchUsers();
-    }, []);
+        if (token) {
+            fetchUsers();
+        }
+    }, [token]);
 
     const handleOpenModal = (user?: User) => {
         if (user) {
@@ -78,59 +85,48 @@ export const UserManager: React.FC = () => {
         try {
             if (editingUser) {
                 // Actualizar usuario existente
-                const updateData: any = {
-                    name: formData.name,
-                    role: formData.role,
-                    isActive: formData.isActive,
-                };
-
-                // Solo actualizar email si cambió
-                if (formData.email !== editingUser.email) {
-                    updateData.email = formData.email;
-                }
-
-                const { error } = await supabase
-                    .from('User')
-                    .update(updateData)
-                    .eq('id', editingUser.id);
-
-                if (error) throw error;
-
-                // Si se proporcionó contraseña, actualizar en auth.users
-                if (formData.password) {
-                    const { error: authError } = await supabase.auth.admin.updateUserById(
-                        editingUser.id,
-                        { password: formData.password }
-                    );
-                    if (authError) throw authError;
-                }
+                const response = await fetch(`${API_URL}/admin/users/${editingUser.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        name: formData.name,
+                        role: formData.role,
+                        isActive: formData.isActive,
+                        email: formData.email,
+                        password: formData.password || undefined,
+                    }),
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.message);
             } else {
                 // Crear nuevo usuario
-                // Primero crear en auth.users
-                const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-                    email: formData.email,
-                    password: formData.password,
-                    email_confirm: true,
-                    user_metadata: { name: formData.name },
+                const response = await fetch(`${API_URL}/admin/users`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                        email: formData.email,
+                        name: formData.name,
+                        password: formData.password,
+                        role: formData.role,
+                        isActive: formData.isActive,
+                    }),
                 });
-
-                if (authError) throw authError;
-
-                // Actualizar rol en la tabla User
-                const { error: updateError } = await supabase
-                    .from('User')
-                    .update({ role: formData.role })
-                    .eq('id', authData.user.id);
-
-                if (updateError) throw updateError;
+                const data = await response.json();
+                if (!data.success) throw new Error(data.message);
             }
 
             showToast(editingUser ? 'Usuario actualizado' : 'Usuario creado', 'success');
             setIsModalOpen(false);
             fetchUsers();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving user:', error);
-            showToast('Error de conexión', 'error');
+            showToast(error.message || 'Error de conexión', 'error');
         } finally {
             setLoading(false);
         }
@@ -139,15 +135,21 @@ export const UserManager: React.FC = () => {
     const handleToggleActive = async (user: User) => {
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from('User')
-                .update({ isActive: !user.isActive })
-                .eq('id', user.id);
-
-            if (error) throw error;
-
-            showToast('Estado actualizado', 'success');
-            fetchUsers();
+            const response = await fetch(`${API_URL}/admin/users/${user.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ ...user, isActive: !user.isActive }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Estado actualizado', 'success');
+                fetchUsers();
+            } else {
+                showToast(data.message || 'Error', 'error');
+            }
         } catch (error) {
             console.error('Error toggling user:', error);
             showToast('Error de conexión', 'error');
@@ -161,12 +163,19 @@ export const UserManager: React.FC = () => {
 
         setLoading(true);
         try {
-            // Eliminar de auth.users (esto eliminará también de User por cascada)
-            const { error } = await supabase.auth.admin.deleteUser(userId);
-            if (error) throw error;
-
-            showToast('Usuario eliminado', 'success');
-            fetchUsers();
+            const response = await fetch(`${API_URL}/admin/users/${userId}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Usuario eliminado', 'success');
+                fetchUsers();
+            } else {
+                showToast(data.message || 'Error', 'error');
+            }
         } catch (error) {
             console.error('Error deleting user:', error);
             showToast('Error de conexión', 'error');

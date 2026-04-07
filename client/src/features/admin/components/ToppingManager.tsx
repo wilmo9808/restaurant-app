@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../config/supabase';
+import { useAuthStore } from '../../../store/authStore';
 import { useUIStore } from '../../../store/uiStore';
 import { Button } from '../../../components/UI/Button';
 import { Modal } from '../../../components/UI/Modal';
@@ -13,7 +13,10 @@ interface Topping {
     createdAt: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 export const ToppingManager: React.FC = () => {
+    const { token } = useAuthStore();
     const { showToast, setLoading, isLoading } = useUIStore();
     const [toppings, setToppings] = useState<Topping[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,14 +30,15 @@ export const ToppingManager: React.FC = () => {
     const fetchToppings = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('Topping')
-                .select('*')
-                .order('name', { ascending: true });
-
-            if (error) throw error;
-
-            setToppings(data as Topping[]);
+            const response = await fetch(`${API_URL}/admin/toppings`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                setToppings(data.data);
+            }
         } catch (error) {
             console.error('Error fetching toppings:', error);
             showToast('Error al cargar toppings', 'error');
@@ -44,8 +48,10 @@ export const ToppingManager: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchToppings();
-    }, []);
+        if (token) {
+            fetchToppings();
+        }
+    }, [token]);
 
     const handleOpenModal = (topping?: Topping) => {
         if (topping) {
@@ -78,33 +84,28 @@ export const ToppingManager: React.FC = () => {
 
         setLoading(true);
         try {
-            let error;
-            if (editingTopping) {
-                const { error: updateError } = await supabase
-                    .from('Topping')
-                    .update({
-                        name: formData.name,
-                        price: formData.price,
-                        isActive: formData.isActive,
-                    })
-                    .eq('id', editingTopping.id);
-                error = updateError;
+            const url = editingTopping
+                ? `${API_URL}/admin/toppings/${editingTopping.id}`
+                : `${API_URL}/admin/toppings`;
+            const method = editingTopping ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(formData),
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showToast(editingTopping ? 'Topping actualizado' : 'Topping creado', 'success');
+                setIsModalOpen(false);
+                fetchToppings();
             } else {
-                const { error: insertError } = await supabase
-                    .from('Topping')
-                    .insert([{
-                        name: formData.name,
-                        price: formData.price,
-                        isActive: formData.isActive,
-                    }]);
-                error = insertError;
+                showToast(data.message || 'Error', 'error');
             }
-
-            if (error) throw error;
-
-            showToast(editingTopping ? 'Topping actualizado' : 'Topping creado', 'success');
-            setIsModalOpen(false);
-            fetchToppings();
         } catch (error) {
             console.error('Error saving topping:', error);
             showToast('Error de conexión', 'error');
@@ -116,15 +117,21 @@ export const ToppingManager: React.FC = () => {
     const handleToggleActive = async (topping: Topping) => {
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from('Topping')
-                .update({ isActive: !topping.isActive })
-                .eq('id', topping.id);
-
-            if (error) throw error;
-
-            showToast('Estado actualizado', 'success');
-            fetchToppings();
+            const response = await fetch(`${API_URL}/admin/toppings/${topping.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ ...topping, isActive: !topping.isActive }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Estado actualizado', 'success');
+                fetchToppings();
+            } else {
+                showToast(data.message || 'Error', 'error');
+            }
         } catch (error) {
             console.error('Error toggling topping:', error);
             showToast('Error de conexión', 'error');
@@ -138,15 +145,19 @@ export const ToppingManager: React.FC = () => {
 
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from('Topping')
-                .delete()
-                .eq('id', toppingId);
-
-            if (error) throw error;
-
-            showToast('Topping eliminado', 'success');
-            fetchToppings();
+            const response = await fetch(`${API_URL}/admin/toppings/${toppingId}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Topping eliminado', 'success');
+                fetchToppings();
+            } else {
+                showToast(data.message || 'Error', 'error');
+            }
         } catch (error) {
             console.error('Error deleting topping:', error);
             showToast('Error de conexión', 'error');

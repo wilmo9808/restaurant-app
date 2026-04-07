@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../../../config/supabase';
+import { useAuthStore } from '../../../store/authStore';
 import { useUIStore } from '../../../store/uiStore';
 import { Button } from '../../../components/UI/Button';
 import { Modal } from '../../../components/UI/Modal';
@@ -13,7 +13,10 @@ interface Category {
     productCount: number;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 export const CategoryManager: React.FC = () => {
+    const { token } = useAuthStore();
     const { showToast, setLoading, isLoading } = useUIStore();
     const [categories, setCategories] = useState<Category[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -22,13 +25,15 @@ export const CategoryManager: React.FC = () => {
 
     const fetchProducts = async () => {
         try {
-            const { data, error } = await supabase
-                .from('Product')
-                .select('category')
-                .is('deletedAt', null);
-
-            if (error) throw error;
-            setProducts(data || []);
+            const response = await fetch(`${API_URL}/admin/products`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                setProducts(data.data);
+            }
         } catch (error) {
             console.error('Error fetching products:', error);
         }
@@ -49,8 +54,10 @@ export const CategoryManager: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchProducts();
-    }, []);
+        if (token) {
+            fetchProducts();
+        }
+    }, [token]);
 
     useEffect(() => {
         if (products.length > 0) {
@@ -73,22 +80,30 @@ export const CategoryManager: React.FC = () => {
         setLoading(true);
         try {
             // Crear un producto temporal para crear la categoría
-            const { error } = await supabase
-                .from('Product')
-                .insert([{
+            const response = await fetch(`${API_URL}/admin/products`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
                     name: `Temporal - ${newCategoryName}`,
                     price: 0,
                     category: newCategoryName,
                     description: `Categoría creada: ${newCategoryName}`,
                     isActive: false,
-                }]);
+                }),
+            });
 
-            if (error) throw error;
-
-            showToast(`Categoría "${newCategoryName}" creada exitosamente`, 'success');
-            setNewCategoryName('');
-            setIsModalOpen(false);
-            await fetchProducts();
+            const data = await response.json();
+            if (data.success) {
+                showToast(`Categoría "${newCategoryName}" creada exitosamente`, 'success');
+                setNewCategoryName('');
+                setIsModalOpen(false);
+                await fetchProducts();
+            } else {
+                showToast(data.message || 'Error al crear categoría', 'error');
+            }
         } catch (error) {
             console.error('Error creating category:', error);
             showToast('Error de conexión al crear categoría', 'error');

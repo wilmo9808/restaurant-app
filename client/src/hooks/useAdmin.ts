@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../../../config/supabase';
-import { useUIStore } from '../../../store/uiStore';
+import { useAuthStore } from '../store/authStore';
+import { useUIStore } from '../store/uiStore';
+import { getUsers, getTables, getProducts, getToppings } from '../services/adminService';
 
 // Tipos
 interface User {
@@ -36,6 +37,7 @@ interface Topping {
 }
 
 export const useAdmin = () => {
+    const { token } = useAuthStore();
     const { showToast } = useUIStore();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -52,15 +54,11 @@ export const useAdmin = () => {
     const [toppings, setToppings] = useState<Topping[]>([]);
 
     const fetchUsers = async () => {
+        if (!token) return;
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('User')
-                .select('*')
-                .order('createdAt', { ascending: false });
-
-            if (error) throw error;
-            setUsers(data as User[]);
+            const data = await getUsers(token);
+            setUsers(data);
         } catch (error) {
             console.error('Error fetching users:', error);
             showToast('Error al cargar usuarios', 'error');
@@ -70,15 +68,11 @@ export const useAdmin = () => {
     };
 
     const fetchTables = async () => {
+        if (!token) return;
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('Table')
-                .select('*')
-                .order('number', { ascending: true });
-
-            if (error) throw error;
-            setTables(data as Table[]);
+            const data = await getTables(token);
+            setTables(data);
         } catch (error) {
             console.error('Error fetching tables:', error);
             showToast('Error al cargar mesas', 'error');
@@ -88,16 +82,11 @@ export const useAdmin = () => {
     };
 
     const fetchProducts = async () => {
+        if (!token) return;
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('Product')
-                .select('*')
-                .is('deletedAt', null)
-                .order('createdAt', { ascending: false });
-
-            if (error) throw error;
-            setProducts(data as Product[]);
+            const data = await getProducts(token);
+            setProducts(data);
         } catch (error) {
             console.error('Error fetching products:', error);
             showToast('Error al cargar productos', 'error');
@@ -107,16 +96,11 @@ export const useAdmin = () => {
     };
 
     const fetchToppings = async () => {
+        if (!token) return;
         setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('Topping')
-                .select('*')
-                .eq('isActive', true)
-                .order('name', { ascending: true });
-
-            if (error) throw error;
-            setToppings(data as Topping[]);
+            const data = await getToppings(token);
+            setToppings(data);
         } catch (error) {
             console.error('Error fetching toppings:', error);
             showToast('Error al cargar toppings', 'error');
@@ -126,11 +110,13 @@ export const useAdmin = () => {
     };
 
     useEffect(() => {
-        fetchUsers();
-        fetchTables();
-        fetchProducts();
-        fetchToppings();
-    }, []);
+        if (token) {
+            fetchUsers();
+            fetchTables();
+            fetchProducts();
+            fetchToppings();
+        }
+    }, [token]);
 
     return {
         isLoading,

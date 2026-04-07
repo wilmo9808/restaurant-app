@@ -3,7 +3,6 @@ import { MainLayout } from '../../../components/Layout/MainLayout';
 import { OrderQueue } from '../components/OrderQueue';
 import { useOrders } from '../../../hooks/useOrders';
 import { useUIStore } from '../../../store/uiStore';
-import { supabase } from '../../../config/supabase';
 
 type TabType = 'pending' | 'in-progress' | 'ready';
 
@@ -23,8 +22,6 @@ export const KitchenDashboard: React.FC = () => {
 
     const handleCompleteOrder = async (orderId: string) => {
         await updateStatus({ id: orderId, status: 'READY' });
-
-        // Actualizar en tiempo real para caja (se puede implementar con suscripción de Supabase)
         showToast('Pedido listo para servir', 'success');
     };
 

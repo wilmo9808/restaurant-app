@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '../../../config/supabase';
+import { useAuthStore } from '../../../store/authStore';
 import { useUIStore } from '../../../store/uiStore';
 import { Button } from '../../../components/UI/Button';
 import { Modal } from '../../../components/UI/Modal';
@@ -18,7 +18,10 @@ interface Product {
     createdAt: string;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 export const ProductManager: React.FC = () => {
+    const { token } = useAuthStore();
     const { showToast, setLoading, isLoading } = useUIStore();
     const [products, setProducts] = useState<Product[]>([]);
     const [categories, setCategories] = useState<{ value: string; label: string }[]>([]);
@@ -39,17 +42,17 @@ export const ProductManager: React.FC = () => {
     const fetchProducts = async () => {
         setLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('Product')
-                .select('*')
-                .is('deletedAt', null)
-                .order('createdAt', { ascending: false });
-
-            if (error) throw error;
-
-            setProducts(data as Product[]);
-            const uniqueCategories = [...new Set((data as Product[]).map(p => p.category))];
-            setCategories(uniqueCategories.map(cat => ({ value: cat, label: cat })));
+            const response = await fetch(`${API_URL}/admin/products`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                setProducts(data.data);
+                const uniqueCategories = [...new Set(data.data.map((p: Product) => p.category))];
+                setCategories(uniqueCategories.map(cat => ({ value: cat, label: cat })));
+            }
         } catch (error) {
             console.error('Error fetching products:', error);
             showToast('Error al cargar productos', 'error');
@@ -59,8 +62,10 @@ export const ProductManager: React.FC = () => {
     };
 
     useEffect(() => {
-        fetchProducts();
-    }, []);
+        if (token) {
+            fetchProducts();
+        }
+    }, [token]);
 
     const handleOpenModal = (product?: Product) => {
         if (product) {
@@ -114,22 +119,24 @@ export const ProductManager: React.FC = () => {
     const uploadImage = async (): Promise<string | null> => {
         if (!imageFile) return formData.imageUrl;
 
+        const formData = new FormData();
+        formData.append('image', imageFile);
+
         try {
-            const fileExt = imageFile.name.split('.').pop();
-            const fileName = `${Date.now()}.${fileExt}`;
-            const filePath = `products/${fileName}`;
-
-            const { error: uploadError } = await supabase.storage
-                .from('product-images')
-                .upload(filePath, imageFile);
-
-            if (uploadError) throw uploadError;
-
-            const { data: { publicUrl } } = supabase.storage
-                .from('product-images')
-                .getPublicUrl(filePath);
-
-            return publicUrl;
+            const response = await fetch(`${API_URL}/admin/products/upload-image`, {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                body: formData,
+            });
+            const data = await response.json();
+            if (data.success) {
+                return data.data.imageUrl;
+            } else {
+                showToast('Error al subir imagen', 'error');
+                return null;
+            }
         } catch (error) {
             console.error('Error uploading image:', error);
             showToast('Error al subir imagen', 'error');
@@ -171,25 +178,28 @@ export const ProductManager: React.FC = () => {
                 imageUrl: imageUrl,
             };
 
-            let error;
-            if (editingProduct) {
-                const { error: updateError } = await supabase
-                    .from('Product')
-                    .update(submitData)
-                    .eq('id', editingProduct.id);
-                error = updateError;
+            const url = editingProduct
+                ? `${API_URL}/admin/products/${editingProduct.id}`
+                : `${API_URL}/admin/products`;
+            const method = editingProduct ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify(submitData),
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                showToast(editingProduct ? 'Producto actualizado' : 'Producto creado', 'success');
+                setIsModalOpen(false);
+                fetchProducts();
             } else {
-                const { error: insertError } = await supabase
-                    .from('Product')
-                    .insert([submitData]);
-                error = insertError;
+                showToast(data.message || 'Error', 'error');
             }
-
-            if (error) throw error;
-
-            showToast(editingProduct ? 'Producto actualizado' : 'Producto creado', 'success');
-            setIsModalOpen(false);
-            fetchProducts();
         } catch (error) {
             console.error('Error saving product:', error);
             showToast('Error de conexión', 'error');
@@ -201,15 +211,21 @@ export const ProductManager: React.FC = () => {
     const handleToggleActive = async (product: Product) => {
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from('Product')
-                .update({ isActive: !product.isActive })
-                .eq('id', product.id);
-
-            if (error) throw error;
-
-            showToast('Estado actualizado', 'success');
-            fetchProducts();
+            const response = await fetch(`${API_URL}/admin/products/${product.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({ ...product, isActive: !product.isActive }),
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Estado actualizado', 'success');
+                fetchProducts();
+            } else {
+                showToast(data.message || 'Error', 'error');
+            }
         } catch (error) {
             console.error('Error toggling product:', error);
             showToast('Error de conexión', 'error');
@@ -223,15 +239,19 @@ export const ProductManager: React.FC = () => {
 
         setLoading(true);
         try {
-            const { error } = await supabase
-                .from('Product')
-                .update({ isActive: false, deletedAt: new Date().toISOString() })
-                .eq('id', productId);
-
-            if (error) throw error;
-
-            showToast('Producto archivado exitosamente', 'success');
-            fetchProducts();
+            const response = await fetch(`${API_URL}/admin/products/${productId}/archive`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Producto archivado exitosamente', 'success');
+                fetchProducts();
+            } else {
+                showToast(data.message || 'Error', 'error');
+            }
         } catch (error) {
             console.error('Error archiving product:', error);
             showToast('Error de conexión', 'error');
@@ -245,29 +265,19 @@ export const ProductManager: React.FC = () => {
 
         setLoading(true);
         try {
-            const { data: orderItems, error: checkError } = await supabase
-                .from('OrderItem')
-                .select('id')
-                .eq('productId', productId)
-                .limit(1);
-
-            if (checkError) throw checkError;
-
-            if (orderItems && orderItems.length > 0) {
-                showToast('No se puede eliminar el producto porque tiene pedidos asociados. Use Archivar en su lugar.', 'error');
-                setLoading(false);
-                return;
+            const response = await fetch(`${API_URL}/admin/products/${productId}`, {
+                method: 'DELETE',
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                showToast('Producto eliminado permanentemente', 'success');
+                fetchProducts();
+            } else {
+                showToast(data.message || 'Error', 'error');
             }
-
-            const { error } = await supabase
-                .from('Product')
-                .delete()
-                .eq('id', productId);
-
-            if (error) throw error;
-
-            showToast('Producto eliminado permanentemente', 'success');
-            fetchProducts();
         } catch (error) {
             console.error('Error deleting product:', error);
             showToast('Error de conexión', 'error');

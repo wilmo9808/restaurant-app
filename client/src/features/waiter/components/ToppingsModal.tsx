@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal } from '../../../components/UI/Modal';
-import { supabase } from '../../../config/supabase';
+import { useAuthStore } from '../../../store/authStore';
 import { useUIStore } from '../../../store/uiStore';
 import { Product } from '../../../types/product';
 import { formatCurrency } from '../../../utils/formatters';
@@ -19,35 +19,38 @@ interface ToppingsModalProps {
     onConfirm: (toppings: { toppingId: string; toppingName: string; price: number }[]) => void;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 export const ToppingsModal: React.FC<ToppingsModalProps> = ({
     isOpen,
     product,
     onClose,
     onConfirm,
 }) => {
+    const { token } = useAuthStore();
     const { showToast } = useUIStore();
     const [toppings, setToppings] = useState<Topping[]>([]);
     const [selectedToppings, setSelectedToppings] = useState<Topping[]>([]);
     const [isLoadingToppings, setIsLoadingToppings] = useState(true);
 
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && token) {
             fetchToppings();
         }
-    }, [isOpen]);
+    }, [isOpen, token]);
 
     const fetchToppings = async () => {
         setIsLoadingToppings(true);
         try {
-            const { data, error } = await supabase
-                .from('Topping')
-                .select('*')
-                .eq('isActive', true)
-                .order('name', { ascending: true });
-
-            if (error) throw error;
-
-            setToppings(data as Topping[]);
+            const response = await fetch(`${API_URL}/admin/toppings`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            const data = await response.json();
+            if (data.success) {
+                setToppings(data.data.filter((t: Topping) => t.isActive));
+            }
         } catch (error) {
             console.error('Error al cargar toppings:', error);
             showToast('Error al cargar toppings', 'error');

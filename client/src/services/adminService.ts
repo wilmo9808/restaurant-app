@@ -1,5 +1,3 @@
-import { supabase } from '../config/supabase';
-
 // ==================== TIPOS ====================
 
 export interface User {
@@ -87,226 +85,154 @@ export interface ToppingUpdateInput {
     isActive?: boolean;
 }
 
+// Helper para fetch con autenticación
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+const fetchWithAuth = async (endpoint: string, options: RequestInit = {}, token?: string) => {
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+    };
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers,
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.message || 'Error en la petición');
+    }
+    return data;
+};
+
 // ==================== USUARIOS ====================
 
 export const getUsers = async (token: string): Promise<User[]> => {
-    const { data, error } = await supabase
-        .from('User')
-        .select('*')
-        .order('createdAt', { ascending: false });
-
-    if (error) throw new Error(error.message);
-    return data as User[];
+    const response = await fetchWithAuth('/admin/users', { method: 'GET' }, token);
+    return response.data;
 };
 
 export const createUser = async (token: string, data: UserCreateInput): Promise<User> => {
-    // Primero crear el usuario en auth.users
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: data.email,
-        password: data.password,
-        email_confirm: true,
-        user_metadata: { name: data.name },
-    });
-
-    if (authError) throw new Error(authError.message);
-
-    // Actualizar el rol en la tabla User
-    const { data: userData, error: userError } = await supabase
-        .from('User')
-        .update({ role: data.role || 'WAITER' })
-        .eq('id', authData.user.id)
-        .select()
-        .single();
-
-    if (userError) throw new Error(userError.message);
-
-    return userData as User;
+    const response = await fetchWithAuth('/admin/users', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }, token);
+    return response.data;
 };
 
 export const updateUser = async (token: string, id: string, data: UserUpdateInput): Promise<User> => {
-    const updateData: any = {};
-    if (data.role) updateData.role = data.role;
-    if (data.name) updateData.name = data.name;
-    if (data.isActive !== undefined) updateData.isActive = data.isActive;
-
-    const { data: userData, error } = await supabase
-        .from('User')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
-
-    if (error) throw new Error(error.message);
-    return userData as User;
+    const response = await fetchWithAuth(`/admin/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }, token);
+    return response.data;
 };
 
 export const deleteUser = async (token: string, id: string): Promise<void> => {
-    // Eliminar de auth.users (esto eliminará también de User por cascada)
-    const { error } = await supabase.auth.admin.deleteUser(id);
-    if (error) throw new Error(error.message);
+    await fetchWithAuth(`/admin/users/${id}`, { method: 'DELETE' }, token);
 };
 
 // ==================== MESAS ====================
 
 export const getTables = async (token: string): Promise<Table[]> => {
-    const { data, error } = await supabase
-        .from('Table')
-        .select('*')
-        .order('number', { ascending: true });
-
-    if (error) throw new Error(error.message);
-    return data as Table[];
+    const response = await fetchWithAuth('/admin/tables', { method: 'GET' }, token);
+    return response.data;
 };
 
 export const createTable = async (token: string, data: TableCreateInput): Promise<Table> => {
-    const { data: table, error } = await supabase
-        .from('Table')
-        .insert([{ number: data.number, isActive: data.isActive ?? true }])
-        .select()
-        .single();
-
-    if (error) throw new Error(error.message);
-    return table as Table;
+    const response = await fetchWithAuth('/admin/tables', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }, token);
+    return response.data;
 };
 
 export const updateTable = async (token: string, id: number, data: Partial<Table>): Promise<Table> => {
-    const { data: table, error } = await supabase
-        .from('Table')
-        .update(data)
-        .eq('id', id)
-        .select()
-        .single();
-
-    if (error) throw new Error(error.message);
-    return table as Table;
+    const response = await fetchWithAuth(`/admin/tables/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }, token);
+    return response.data;
 };
 
 export const deleteTable = async (token: string, id: number): Promise<void> => {
-    const { error } = await supabase
-        .from('Table')
-        .delete()
-        .eq('id', id);
-
-    if (error) throw new Error(error.message);
+    await fetchWithAuth(`/admin/tables/${id}`, { method: 'DELETE' }, token);
 };
 
 // ==================== PRODUCTOS ====================
 
 export const getProducts = async (token: string): Promise<Product[]> => {
-    const { data, error } = await supabase
-        .from('Product')
-        .select('*')
-        .is('deletedAt', null)
-        .order('createdAt', { ascending: false });
-
-    if (error) throw new Error(error.message);
-    return data as Product[];
+    const response = await fetchWithAuth('/admin/products', { method: 'GET' }, token);
+    return response.data;
 };
 
 export const createProduct = async (token: string, data: ProductCreateInput): Promise<Product> => {
-    const { data: product, error } = await supabase
-        .from('Product')
-        .insert([{
-            name: data.name,
-            price: data.price,
-            category: data.category,
-            description: data.description,
-            imageUrl: data.imageUrl,
-            isActive: data.isActive ?? true,
-        }])
-        .select()
-        .single();
-
-    if (error) throw new Error(error.message);
-    return product as Product;
+    const response = await fetchWithAuth('/admin/products', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }, token);
+    return response.data;
 };
 
 export const updateProduct = async (token: string, id: string, data: ProductUpdateInput): Promise<Product> => {
-    const { data: product, error } = await supabase
-        .from('Product')
-        .update(data)
-        .eq('id', id)
-        .select()
-        .single();
-
-    if (error) throw new Error(error.message);
-    return product as Product;
+    const response = await fetchWithAuth(`/admin/products/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }, token);
+    return response.data;
 };
 
 export const deleteProduct = async (token: string, id: string): Promise<void> => {
-    // Soft delete - solo marcar como eliminado
-    const { error } = await supabase
-        .from('Product')
-        .update({ isActive: false, deletedAt: new Date().toISOString() })
-        .eq('id', id);
-
-    if (error) throw new Error(error.message);
+    await fetchWithAuth(`/admin/products/${id}`, { method: 'DELETE' }, token);
 };
 
 export const uploadProductImage = async (token: string, file: File): Promise<{ imageUrl: string }> => {
-    // Subir imagen a Supabase Storage
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `products/${fileName}`;
+    const formData = new FormData();
+    formData.append('image', file);
 
-    const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, file);
+    const response = await fetch(`${API_URL}/admin/products/upload-image`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+    });
 
-    if (uploadError) throw new Error(uploadError.message);
-
-    const { data: { publicUrl } } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
-
-    return { imageUrl: publicUrl };
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.message || 'Error al subir imagen');
+    }
+    return data.data;
 };
 
 // ==================== TOPPINGS ====================
 
 export const getToppings = async (token: string): Promise<Topping[]> => {
-    const { data, error } = await supabase
-        .from('Topping')
-        .select('*')
-        .eq('isActive', true)
-        .order('name', { ascending: true });
-
-    if (error) throw new Error(error.message);
-    return data as Topping[];
+    const response = await fetchWithAuth('/admin/toppings', { method: 'GET' }, token);
+    return response.data;
 };
 
 export const createTopping = async (token: string, data: ToppingCreateInput): Promise<Topping> => {
-    const { data: topping, error } = await supabase
-        .from('Topping')
-        .insert([{
-            name: data.name,
-            price: data.price,
-            isActive: data.isActive ?? true,
-        }])
-        .select()
-        .single();
-
-    if (error) throw new Error(error.message);
-    return topping as Topping;
+    const response = await fetchWithAuth('/admin/toppings', {
+        method: 'POST',
+        body: JSON.stringify(data),
+    }, token);
+    return response.data;
 };
 
 export const updateTopping = async (token: string, id: string, data: ToppingUpdateInput): Promise<Topping> => {
-    const { data: topping, error } = await supabase
-        .from('Topping')
-        .update(data)
-        .eq('id', id)
-        .select()
-        .single();
-
-    if (error) throw new Error(error.message);
-    return topping as Topping;
+    const response = await fetchWithAuth(`/admin/toppings/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+    }, token);
+    return response.data;
 };
 
 export const deleteTopping = async (token: string, id: string): Promise<void> => {
-    const { error } = await supabase
-        .from('Topping')
-        .delete()
-        .eq('id', id);
-
-    if (error) throw new Error(error.message);
+    await fetchWithAuth(`/admin/toppings/${id}`, { method: 'DELETE' }, token);
 };

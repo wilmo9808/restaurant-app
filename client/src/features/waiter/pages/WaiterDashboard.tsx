@@ -9,7 +9,6 @@ import { useAuthStore } from '../../../store/authStore';
 import { OrderItemInput } from '../../../types/order';
 import { Button } from '../../../components/UI/Button';
 import { useUIStore } from '../../../store/uiStore';
-import { supabase } from '../../../config/supabase';
 
 export const WaiterDashboard: React.FC = () => {
     const [selectedTable, setSelectedTable] = useState<number | null>(null);
