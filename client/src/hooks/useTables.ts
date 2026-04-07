@@ -41,8 +41,8 @@ export const useTables = () => {
     useEffect(() => {
         if (!socket || !isConnected) return;
 
-        const handleTablesUpdated = () => {
-            console.log('Mesas actualizadas, recargando...');
+        const handleTablesUpdated = (data: any) => {
+            console.log('📡 Evento tables-updated RECIBIDO en frontend:', data);
             fetchTables();
         };
 
