@@ -1,6 +1,6 @@
 import React from 'react';
 import { useUIStore } from '../../../store/uiStore';
-import { useTables } from '../../../hooks/useTables';
+import { useTablesRealtime } from '../../../hooks/useTablesRealtime';
 
 interface TableSelectorProps {
     selectedTable: number | null;
@@ -9,7 +9,7 @@ interface TableSelectorProps {
 
 export const TableSelector: React.FC<TableSelectorProps> = ({ selectedTable, onSelectTable }) => {
     const { showToast } = useUIStore();
-    const { tables, isLoading, error } = useTables();
+    const { tables, isLoading, error } = useTablesRealtime();
 
     // Mostrar error si existe
     if (error) {
