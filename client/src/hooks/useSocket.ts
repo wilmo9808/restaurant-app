@@ -52,7 +52,11 @@ export const useSocket = () => {
         });
 
         socketInstance.on('connect_error', (error) => {
-            console.error('🚫 Error de conexión WebSocket:', error.message);
+            console.error('🚫 [CLIENT SOCKET] Error de conexión WebSocket completo:', error);
+            console.error('🚫 [CLIENT SOCKET] Detalle del mensaje:', error.message);
+            if (socketInstance.io.engine) {
+                console.error('🚫 [CLIENT SOCKET] Transporte actual intentado:', socketInstance.io.engine.transport.name);
+            }
         });
 
         socketInstance.on(SOCKET_EVENTS.NEW_ORDER, (order: Order) => {

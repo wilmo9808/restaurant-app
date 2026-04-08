@@ -3,37 +3,31 @@ import { setIO } from '../config/socket';
 import { handleOrderEvents } from './handlers/orderHandler';
 import { handleKitchenEvents } from './handlers/kitchenHandler';
 import { joinKitchenRoom, joinCashierRoom, leaveAllRooms } from './rooms';
-import { verifyToken } from '../utils/jwt';
 
 export const setupSocket = (io: SocketServer): void => {
     setIO(io);
 
-    // Middleware de autenticación global para WebSockets
-    io.use((socket, next) => {
-        const token = socket.handshake.auth?.token;
-        if (!token) {
-            return next(new Error('Autenticación fallida: Token no proporcionado'));
-        }
-        try {
-            const decoded = verifyToken(token);
-            (socket as any).user = decoded; // Inyecta datos del usuario autenticado
-            next();
-        } catch (error) {
-            return next(new Error('Autenticación fallida: Token inválido'));
-        }
+    io.engine.on("connection_error", (err: any) => {
+        console.log('🚨 [SERVER SOCKET] Fallo a nivel de motor (Handshake / Protocolo):', {
+            url: err.req?.url,
+            code: err.code,
+            message: err.message,
+            context: err.context
+        });
     });
 
     io.on('connection', (socket: Socket) => {
-        console.log(`Usuario conectado [${(socket as any).user?.role}]: ${socket.id}`);
+        const user = (socket as any).user;
+        console.log(`Usuario conectado [${user?.role}]: ${socket.id}`);
 
         socket.on('join-kitchen', () => {
-            if ((socket as any).user?.role === 'SUPER_ADMIN' || (socket as any).user?.role === 'CHEF') {
+            if (user?.role === 'SUPER_ADMIN' || user?.role === 'CHEF') {
                 joinKitchenRoom(socket);
             }
         });
 
         socket.on('join-cashier', () => {
-            if ((socket as any).user?.role === 'SUPER_ADMIN' || (socket as any).user?.role === 'CASHIER') {
+            if (user?.role === 'SUPER_ADMIN' || user?.role === 'CASHIER') {
                 joinCashierRoom(socket);
             }
         });

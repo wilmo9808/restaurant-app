@@ -23,10 +23,20 @@ const io = new Server(server, {
 
 // Middleware de autenticación para WebSocket
 io.use((socket, next) => {
+    console.log('🕵️ [SERVER SOCKET] Intento de conexión desde origen:', socket.handshake.headers.origin);
+    console.log('🕵️ [SERVER SOCKET] Detalles del handshake:', {
+        url: socket.handshake.url,
+        query: socket.handshake.query,
+        headers: {
+            origin: socket.handshake.headers.origin,
+            referer: socket.handshake.headers.referer,
+        }
+    });
+
     const token = socket.handshake.auth.token;
 
     if (!token) {
-        console.log('❌ WebSocket: No token provided');
+        console.log('❌ [SERVER SOCKET] WebSocket rechazado: No token provided');
         return next(new Error('Authentication error'));
     }
 

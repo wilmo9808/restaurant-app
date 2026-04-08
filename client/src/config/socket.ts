@@ -6,6 +6,8 @@ let socket: Socket | null = null;
 
 export const getSocket = (): Socket => {
     if (!socket) {
+        console.log('🔗 [CLIENT SOCKET] VITE_SOCKET_URL env:', import.meta.env.VITE_SOCKET_URL);
+        console.log('🔗 [CLIENT SOCKET] Inicializando con URL:', SOCKET_URL);
         socket = io(SOCKET_URL, {
             transports: ['websocket'],
             autoConnect: false,
