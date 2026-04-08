@@ -36,12 +36,12 @@ export const useSocket = () => {
             console.log('✅ Socket conectado - ID:', socketInstance.id);
             setIsConnected(true);
 
-            if (user?.role === 'CHEF') {
-                console.log('👨‍🍳 Uniéndose a sala de cocina');
+            if (user?.role === 'CHEF' || user?.role === 'SUPER_ADMIN') {
+                console.log(`👨‍🍳 [CLIENT SOCKET] Admin/Chef (${user.role}): Uniéndose a sala de cocina`);
                 socketInstance.emit(SOCKET_EVENTS.JOIN_KITCHEN);
             }
-            if (user?.role === 'CASHIER') {
-                console.log('💰 Uniéndose a sala de caja');
+            if (user?.role === 'CASHIER' || user?.role === 'SUPER_ADMIN') {
+                console.log(`💰 [CLIENT SOCKET] Admin/Cashier (${user.role}): Uniéndose a sala de caja`);
                 socketInstance.emit(SOCKET_EVENTS.JOIN_CASHIER);
             }
         });
