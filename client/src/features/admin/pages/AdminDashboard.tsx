@@ -9,10 +9,12 @@ import { CategoryManager } from '../components/CategoryManager';
 import { QRModal } from '../../menu/components/QRModal';
 import { Button } from '../../../components/UI/Button';
 import { Smartphone } from 'lucide-react';
+import { useSocket } from '../../../hooks/useSocket';
 
 type AdminTab = 'users' | 'tables' | 'products' | 'toppings' | 'categories';
 
 export const AdminDashboard: React.FC = () => {
+    useSocket(); // Inicializa la conexión socket para el Admin
     const [activeTab, setActiveTab] = useState<AdminTab>('users');
     const [isQRModalOpen, setIsQRModalOpen] = useState(false);
     const { user } = useAuthStore();
