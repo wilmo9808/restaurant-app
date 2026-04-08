@@ -19,6 +19,7 @@ exports.SOCKET_EVENTS = {
     ORDER_STATUS_CHANGED: 'order-status-changed',
     ORDER_COMPLETED: 'order-completed',
     MENU_UPDATED: 'menu-updated',
+    TABLES_UPDATED: 'tables-updated',
     JOIN_KITCHEN: 'join-kitchen',
     JOIN_CASHIER: 'join-cashier',
     UPDATE_ORDER_STATUS: 'update-order-status',

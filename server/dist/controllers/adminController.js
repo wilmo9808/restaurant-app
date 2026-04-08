@@ -136,6 +136,7 @@ const getTables = async (req, res) => {
 exports.getTables = getTables;
 const createTable = async (req, res) => {
     try {
+        console.log(`🛠️ [ADMIN CONTROLLER] Recibida solicitud CREATE TABLE con datos:`, req.body);
         const { number, isActive } = req.body;
         const existingTable = await database_1.default.table.findUnique({
             where: { number },
@@ -150,6 +151,9 @@ const createTable = async (req, res) => {
                 isActive: isActive !== undefined ? isActive : true,
             },
         });
+        const io = (0, socket_1.getIO)();
+        console.log(`📡 Emitiendo TABLES_UPDATED: create - Mesa ${table.number}`);
+        io.emit(socket_1.SOCKET_EVENTS.TABLES_UPDATED, { action: 'create', table });
         res.status(201).json({ success: true, data: table });
     }
     catch (error) {
@@ -160,6 +164,7 @@ exports.createTable = createTable;
 const updateTable = async (req, res) => {
     try {
         const { id } = req.params;
+        console.log(`🛠️ [ADMIN CONTROLLER] Recibida solicitud UPDATE TABLE para ID ${id} con datos:`, req.body);
         const { number, isActive } = req.body;
         const table = await database_1.default.table.update({
             where: { id: parseInt(id) },
@@ -168,6 +173,9 @@ const updateTable = async (req, res) => {
                 isActive,
             },
         });
+        const io = (0, socket_1.getIO)();
+        console.log(`📡 Emitiendo TABLES_UPDATED: update - Mesa ${table.number}`);
+        io.emit(socket_1.SOCKET_EVENTS.TABLES_UPDATED, { action: 'update', table });
         res.status(200).json({ success: true, data: table });
     }
     catch (error) {
@@ -178,9 +186,13 @@ exports.updateTable = updateTable;
 const deleteTable = async (req, res) => {
     try {
         const { id } = req.params;
+        console.log(`🛠️ [ADMIN CONTROLLER] Recibida solicitud DELETE TABLE para ID ${id}`);
         await database_1.default.table.delete({
             where: { id: parseInt(id) },
         });
+        const io = (0, socket_1.getIO)();
+        console.log(`📡 Emitiendo TABLES_UPDATED: delete - Mesa ID ${id}`);
+        io.emit(socket_1.SOCKET_EVENTS.TABLES_UPDATED, { action: 'delete', tableId: id });
         res.status(200).json({ success: true, message: 'Mesa eliminada' });
     }
     catch (error) {
@@ -389,6 +401,8 @@ const createTopping = async (req, res) => {
                 isActive: isActive !== undefined ? isActive : true,
             },
         });
+        const io = (0, socket_1.getIO)();
+        io.emit(socket_1.SOCKET_EVENTS.MENU_UPDATED, { action: 'create', topping });
         res.status(201).json({ success: true, data: topping });
     }
     catch (error) {
@@ -408,6 +422,8 @@ const updateTopping = async (req, res) => {
                 isActive,
             },
         });
+        const io = (0, socket_1.getIO)();
+        io.emit(socket_1.SOCKET_EVENTS.MENU_UPDATED, { action: 'update', topping });
         res.status(200).json({ success: true, data: topping });
     }
     catch (error) {
@@ -421,6 +437,8 @@ const deleteTopping = async (req, res) => {
         await database_1.default.topping.delete({
             where: { id },
         });
+        const io = (0, socket_1.getIO)();
+        io.emit(socket_1.SOCKET_EVENTS.MENU_UPDATED, { action: 'delete', toppingId: id });
         res.status(200).json({ success: true, message: 'Topping eliminado' });
     }
     catch (error) {
