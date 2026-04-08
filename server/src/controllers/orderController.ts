@@ -16,6 +16,7 @@ export const createNewOrder = async (req: Request, res: Response): Promise<void>
         const order = await createOrder(req.body, userId);
 
         const io = getIO();
+        console.log(`📣 [SERVER EVENT] Emitiendo NEW_ORDER globalmente. ID: ${order.id.slice(-6)}`);
         io.emit(SOCKET_EVENTS.NEW_ORDER, order);
 
         res.status(201).json({
@@ -87,6 +88,7 @@ export const updateOrder = async (req: Request, res: Response): Promise<void> =>
         const order = await updateOrderStatus(id, { status });
 
         const io = getIO();
+        console.log(`📣 [SERVER EVENT] Emitiendo ORDER_STATUS_CHANGED globalmente. ID: ${id.slice(-6)}, Estado: ${status}`);
         io.emit(SOCKET_EVENTS.ORDER_STATUS_CHANGED, { orderId: id, status });
         io.emit(SOCKET_EVENTS.ORDER_UPDATED, order);
 

@@ -43,7 +43,10 @@ export const useTablesRealtime = () => {
                     fetchTables(); // Recargar mesas cuando haya cambios
                 }
             )
-            .subscribe();
+            .subscribe((status, err) => {
+                console.log('🔗 [SUPABASE REALTIME] Estado de suscripción a mesas:', status);
+                if (err) console.error('🚫 [SUPABASE REALTIME] Error en suscripción:', err);
+            });
 
         return () => {
             subscription.unsubscribe();
