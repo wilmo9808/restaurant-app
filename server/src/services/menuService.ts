@@ -5,7 +5,18 @@ export const getAllProducts = async (): Promise<Product[]> => {
     const products = await prisma.product.findMany({
         where: {
             isActive: true,
-            deletedAt: null, // No mostrar productos archivados
+            deletedAt: null,
+        },
+        select: {
+            id: true,
+            name: true,
+            price: true,
+            category: true,
+            description: true,
+            imageUrl: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
         },
     });
 
@@ -15,7 +26,7 @@ export const getAllProducts = async (): Promise<Product[]> => {
         price: product.price,
         category: product.category,
         description: product.description || undefined,
-        imageUrl: (product as any).imageUrl || undefined,
+        imageUrl: product.imageUrl || null,
     }));
 };
 
@@ -24,7 +35,18 @@ export const getProductsByCategory = async (category: string): Promise<Product[]
         where: {
             category,
             isActive: true,
-            deletedAt: null, // No mostrar productos archivados
+            deletedAt: null,
+        },
+        select: {
+            id: true,
+            name: true,
+            price: true,
+            category: true,
+            description: true,
+            imageUrl: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
         },
     });
 
@@ -34,13 +56,24 @@ export const getProductsByCategory = async (category: string): Promise<Product[]
         price: product.price,
         category: product.category,
         description: product.description || undefined,
-        imageUrl: (product as any).imageUrl || undefined,
+        imageUrl: product.imageUrl || null,
     }));
 };
 
 export const getProductById = async (id: string): Promise<Product | null> => {
     const product = await prisma.product.findUnique({
         where: { id },
+        select: {
+            id: true,
+            name: true,
+            price: true,
+            category: true,
+            description: true,
+            imageUrl: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+        },
     });
 
     if (!product) return null;
@@ -51,7 +84,7 @@ export const getProductById = async (id: string): Promise<Product | null> => {
         price: product.price,
         category: product.category,
         description: product.description || undefined,
-        imageUrl: (product as any).imageUrl || undefined,
+        imageUrl: product.imageUrl || null,
     };
 };
 
@@ -64,6 +97,17 @@ export const createProduct = async (data: ProductInput): Promise<Product> => {
             description: data.description,
             isActive: true,
         },
+        select: {
+            id: true,
+            name: true,
+            price: true,
+            category: true,
+            description: true,
+            imageUrl: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+        },
     });
 
     return {
@@ -72,5 +116,6 @@ export const createProduct = async (data: ProductInput): Promise<Product> => {
         price: product.price,
         category: product.category,
         description: product.description || undefined,
+        imageUrl: product.imageUrl || null,
     };
 };
