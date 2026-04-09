@@ -7,8 +7,6 @@ interface PublicMenuCardProps {
     product: Product;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-
 // Función para obtener ícono por categoría (fallback cuando no hay imagen)
 const getCategoryIcon = (category: string) => {
     const cat = category.toLowerCase();
@@ -25,9 +23,8 @@ const getCategoryIcon = (category: string) => {
 
 export const PublicMenuCard: React.FC<PublicMenuCardProps> = ({ product }) => {
     const hasImage = product.imageUrl && product.imageUrl.trim() !== '';
-    // Construir URL de imagen usando el backend (Cloudinary)
-    const baseUrl = API_URL.replace('/api', '');
-    const imageUrl = hasImage ? `${baseUrl}${product.imageUrl}` : null;
+    // La imagen ya es URL completa de Cloudinary, no necesita concatenación
+    const imageUrl = hasImage ? product.imageUrl : null;
 
     const cat = product.category.toLowerCase();
     const isDrink = cat.includes('bebida') || cat.includes('cerveza') || cat.includes('vino') || cat.includes('cóctel') || cat.includes('coctel');
