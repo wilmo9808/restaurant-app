@@ -11,6 +11,12 @@ export const TableSelector: React.FC<TableSelectorProps> = ({ selectedTable, onS
     const { showToast } = useUIStore();
     const { tables, isLoading, error } = useTablesRealtime();
 
+    React.useEffect(() => {
+        if (!isLoading) {
+            console.log(`🖥️ [UI RENDER] TableSelector reactualizado con ${tables.length} mesas.`);
+        }
+    }, [tables, isLoading]);
+
     // Mostrar error si existe
     if (error) {
         showToast(error, 'error');

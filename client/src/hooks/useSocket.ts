@@ -60,12 +60,12 @@ export const useSocket = () => {
         });
 
         socketInstance.on(SOCKET_EVENTS.NEW_ORDER, (order: Order) => {
-            console.log('📦 Nuevo pedido recibido:', order.id.slice(-6));
+            console.log('📦 [CLIENT SOCKET EVENT] Evento NEW_ORDER recibido:', order.id.slice(-6));
             addNewOrder(order);
         });
 
         socketInstance.on(SOCKET_EVENTS.ORDER_STATUS_CHANGED, (data: { orderId: string; status: string }) => {
-            console.log('🔄 Estado de pedido cambiado:', data.orderId.slice(-6), '→', data.status);
+            console.log('🔄 [CLIENT SOCKET EVENT] Evento ORDER_STATUS_CHANGED recibido:', data.orderId.slice(-6), '→', data.status);
             updateOrderStatus(data.orderId, data.status as any);
         });
 

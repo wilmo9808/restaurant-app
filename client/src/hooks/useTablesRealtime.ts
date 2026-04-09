@@ -14,6 +14,7 @@ export const useTablesRealtime = () => {
 
     const fetchTables = async () => {
         try {
+            console.log('📡 [TABLES REALTIME] Obteniendo estado actual de las mesas desde BD...');
             const { data, error } = await supabase
                 .from('Table')
                 .select('*')
@@ -21,9 +22,10 @@ export const useTablesRealtime = () => {
                 .order('number', { ascending: true });
 
             if (error) throw error;
+            console.log(`✅ [TABLES REALTIME] ${data?.length || 0} mesas cargadas.`);
             setTables(data || []);
         } catch (err: any) {
-            console.error('Error fetching tables:', err);
+            console.error('🚫 [TABLES REALTIME] Error fetching tables:', err);
             setError(err.message);
         } finally {
             setIsLoading(false);
@@ -39,7 +41,7 @@ export const useTablesRealtime = () => {
             .on('postgres_changes',
                 { event: '*', schema: 'public', table: 'Table' },
                 (payload) => {
-                    console.log('Cambio en mesas:', payload);
+                    console.log('🔄 [SUPABASE EVENT] Cambio real-time detectado en tabla "Table":', payload);
                     fetchTables(); // Recargar mesas cuando haya cambios
                 }
             )

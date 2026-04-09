@@ -7,6 +7,8 @@ interface PublicMenuCardProps {
     product: Product;
 }
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
 // Función para obtener ícono por categoría (fallback cuando no hay imagen)
 const getCategoryIcon = (category: string) => {
     const cat = category.toLowerCase();
@@ -23,7 +25,9 @@ const getCategoryIcon = (category: string) => {
 
 export const PublicMenuCard: React.FC<PublicMenuCardProps> = ({ product }) => {
     const hasImage = product.imageUrl && product.imageUrl.trim() !== '';
-    const imageUrl = hasImage ? `http://localhost:3000${product.imageUrl}` : null;
+    // Construir URL de imagen usando el backend (Cloudinary)
+    const baseUrl = API_URL.replace('/api', '');
+    const imageUrl = hasImage ? `${baseUrl}${product.imageUrl}` : null;
 
     const cat = product.category.toLowerCase();
     const isDrink = cat.includes('bebida') || cat.includes('cerveza') || cat.includes('vino') || cat.includes('cóctel') || cat.includes('coctel');
@@ -39,6 +43,10 @@ export const PublicMenuCard: React.FC<PublicMenuCardProps> = ({ product }) => {
                             src={imageUrl}
                             alt={product.name}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            onError={(e) => {
+                                console.error('Error loading image:', imageUrl);
+                                (e.target as HTMLImageElement).style.display = 'none';
+                            }}
                         />
                     </div>
                 ) : (
@@ -47,6 +55,10 @@ export const PublicMenuCard: React.FC<PublicMenuCardProps> = ({ product }) => {
                             src={imageUrl}
                             alt={product.name}
                             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                            onError={(e) => {
+                                console.error('Error loading image:', imageUrl);
+                                (e.target as HTMLImageElement).style.display = 'none';
+                            }}
                         />
                     </div>
                 )

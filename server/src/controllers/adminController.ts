@@ -134,6 +134,7 @@ export const getTables = async (req: Request, res: Response): Promise<void> => {
 
 export const createTable = async (req: Request, res: Response): Promise<void> => {
     try {
+        console.log(`🛠️ [ADMIN CONTROLLER] Recibida solicitud CREATE TABLE con datos:`, req.body);
         const { number, isActive } = req.body;
 
         const existingTable = await prisma.table.findUnique({
@@ -165,6 +166,7 @@ export const createTable = async (req: Request, res: Response): Promise<void> =>
 export const updateTable = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
+        console.log(`🛠️ [ADMIN CONTROLLER] Recibida solicitud UPDATE TABLE para ID ${id} con datos:`, req.body);
         const { number, isActive } = req.body;
 
         const table = await prisma.table.update({
@@ -188,6 +190,7 @@ export const updateTable = async (req: Request, res: Response): Promise<void> =>
 export const deleteTable = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
+        console.log(`🛠️ [ADMIN CONTROLLER] Recibida solicitud DELETE TABLE para ID ${id}`);
 
         await prisma.table.delete({
             where: { id: parseInt(id) },
