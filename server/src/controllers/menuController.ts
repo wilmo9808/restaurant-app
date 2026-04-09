@@ -71,25 +71,31 @@ export const addProduct = async (req: Request, res: Response): Promise<void> => 
 
 export const getPublicMenu = async (req: Request, res: Response): Promise<void> => {
     try {
-        const products = await getAllProducts();
-
-        // Filtrar solo productos activos y devolver imageUrl
-        const activeProducts = products
-            .filter(p => p.isActive !== false)
-            .map(p => ({
-                id: p.id,
-                name: p.name,
-                price: p.price,
-                category: p.category,
-                description: p.description,
-                imageUrl: p.imageUrl || null,
-            }));
+        // Consultar productos directamente desde Prisma para asegurar imageUrl
+        const products = await prisma.product.findMany({
+            where: {
+                isActive: true,
+                deletedAt: null,
+            },
+            select: {
+                id: true,
+                name: true,
+                price: true,
+                category: true,
+                description: true,
+                imageUrl: true,
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
 
         res.status(200).json({
             success: true,
-            data: activeProducts,
+            data: products,
         });
     } catch (error: any) {
+        console.error('Error en getPublicMenu:', error);
         res.status(500).json({
             success: false,
             message: error.message || 'Error al obtener menú público',
