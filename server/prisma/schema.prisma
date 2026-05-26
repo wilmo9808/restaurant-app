@@ -71,6 +71,10 @@ model Order {
   items       OrderItem[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([userId])
 }
 
 model OrderItem {
@@ -83,4 +87,7 @@ model OrderItem {
   subtotal      Float
   toppings      String? // JSON string con toppings aplicados
   createdAt     DateTime @default(now())
+
+  @@index([orderId])
+  @@index([productId])
 }

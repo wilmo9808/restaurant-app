@@ -8,6 +8,7 @@ import { useMenu } from '../../../hooks/useMenu';
 import { useAuthStore } from '../../../store/authStore';
 import { useSocket } from '../../../hooks/useSocket';
 import { useUIStore } from '../../../store/uiStore';
+import { useOrders } from '../../../hooks/useOrders';
 
 export const WaiterDashboard: React.FC = () => {
     const [selectedTable, setSelectedTable] = useState<number | null>(null);
@@ -16,6 +17,7 @@ export const WaiterDashboard: React.FC = () => {
     const { token, user } = useAuthStore();
     const { emit } = useSocket();
     const { showToast, setLoading, isLoading } = useUIStore();
+    const { createOrder, isCreating } = useOrders();
 
     const handleSelectTable = (tableNumber: number) => {
         setSelectedTable(tableNumber);
@@ -53,43 +55,33 @@ export const WaiterDashboard: React.FC = () => {
         setLoading(true);
 
         try {
-            // Calcular el total correctamente (producto + toppings)
-            const itemsWithTotal = currentOrder.items.map(item => {
-                const toppingsTotal = (item.modifications || []).reduce((sum: number, t: any) => sum + t.price, 0);
-                const itemTotal = (item.price + toppingsTotal) * item.quantity;
-                return { ...item, itemTotal };
-            });
-
-            const totalOrder = itemsWithTotal.reduce((sum, item) => sum + item.itemTotal, 0);
-
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/orders`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
+            createOrder(
+                {
                     tableNumber: selectedTable,
                     items: currentOrder.items,
-                    total: totalOrder,
+                    total: currentOrder.total,
                     notes: notes || '',
-                }),
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                emit('new-order', data.data);
-                showToast(notes ? 'Pedido con notas enviado a cocina' : 'Pedido enviado a cocina', 'success');
-                clearCurrentOrder();
-                setSelectedTable(null);
-            } else {
-                showToast(data.message || 'Error al enviar pedido', 'error');
-            }
+                },
+                {
+                    onSuccess: (newOrder) => {
+                        // El evento WebSocket global lo maneja el backend,
+                        // pero emitimos para asegurar consistencia
+                        emit('new-order', newOrder);
+                        showToast(notes ? 'Pedido con notas enviado a cocina' : 'Pedido enviado a cocina', 'success');
+                        clearCurrentOrder();
+                        setSelectedTable(null);
+                        setLoading(false);
+                    },
+                    onError: (error: any) => {
+                        console.error('Error al enviar pedido:', error);
+                        showToast(error.message || 'Error al enviar pedido', 'error');
+                        setLoading(false);
+                    }
+                }
+            );
         } catch (error) {
             console.error('Error al enviar pedido:', error);
             showToast('Error de conexión', 'error');
-        } finally {
             setLoading(false);
         }
     };
@@ -135,7 +127,7 @@ export const WaiterDashboard: React.FC = () => {
                             onUpdateQuantity={updateItemQuantity}
                             onRemoveItem={removeItemFromOrder}
                             onSendOrder={handleSendOrder}
-                            isLoading={isLoading}
+                            isLoading={isLoading || isCreating}
                         />
                     </div>
                 </div>

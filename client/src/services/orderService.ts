@@ -1,4 +1,5 @@
 import { Order, OrderInput, DailyReport, TotalsData } from '../types/order';
+import { useAuthStore } from '../store/authStore';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -16,6 +17,12 @@ const fetchWithAuth = async (endpoint: string, options: RequestInit = {}, token?
         ...options,
         headers,
     });
+
+    if (response.status === 401) {
+        useAuthStore.getState().logout();
+        window.location.href = '/login';
+        throw new Error('Sesión expirada');
+    }
 
     const data = await response.json();
     if (!response.ok) {

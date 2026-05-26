@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { MainLayout } from '../../../components/Layout/MainLayout';
+import { Modal } from '../../../components/UI/Modal';
 import { OrderQueue } from '../components/OrderQueue';
 import { useOrders } from '../../../hooks/useOrders';
 import { useUIStore } from '../../../store/uiStore';
@@ -8,6 +9,12 @@ type TabType = 'pending' | 'in-progress' | 'ready';
 
 export const KitchenDashboard: React.FC = () => {
     const [activeTab, setActiveTab] = useState<TabType>('pending');
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        orderId: string | null;
+        action: 'start' | 'complete' | null;
+    }>({ isOpen: false, orderId: null, action: null });
+    
     const { orders, isLoading, updateStatus, isUpdating } = useOrders();
     const { showToast } = useUIStore();
 
@@ -16,13 +23,27 @@ export const KitchenDashboard: React.FC = () => {
     const readyOrders = orders.filter(o => o.status === 'READY');
 
     const handleStartOrder = (orderId: string) => {
-        updateStatus({ id: orderId, status: 'IN_PROGRESS' });
-        showToast('Pedido iniciado', 'info');
+        setConfirmModal({ isOpen: true, orderId, action: 'start' });
     };
 
-    const handleCompleteOrder = async (orderId: string) => {
-        await updateStatus({ id: orderId, status: 'READY' });
-        showToast('Pedido listo para servir', 'success');
+    const handleCompleteOrder = (orderId: string) => {
+        setConfirmModal({ isOpen: true, orderId, action: 'complete' });
+    };
+
+    const confirmAction = async () => {
+        if (!confirmModal.orderId || !confirmModal.action) return;
+        
+        try {
+            if (confirmModal.action === 'start') {
+                updateStatus({ id: confirmModal.orderId, status: 'IN_PROGRESS' });
+                showToast('Pedido iniciado', 'info');
+            } else if (confirmModal.action === 'complete') {
+                updateStatus({ id: confirmModal.orderId, status: 'READY' });
+                showToast('Pedido listo para servir', 'success');
+            }
+        } finally {
+            setConfirmModal({ isOpen: false, orderId: null, action: null });
+        }
     };
 
     const tabs = [
@@ -135,6 +156,23 @@ export const KitchenDashboard: React.FC = () => {
                         )}
                     </div>
                 )}
+
+                <Modal
+                    isOpen={confirmModal.isOpen}
+                    onClose={() => setConfirmModal({ isOpen: false, orderId: null, action: null })}
+                    title={confirmModal.action === 'start' ? 'Iniciar Pedido' : 'Completar Pedido'}
+                    confirmText="Sí, continuar"
+                    cancelText="Cancelar"
+                    onConfirm={confirmAction}
+                    confirmVariant={confirmModal.action === 'start' ? 'primary' : 'success'}
+                    isLoading={isUpdating}
+                >
+                    <p className="text-gray-600">
+                        {confirmModal.action === 'start' 
+                            ? '¿Estás seguro de que quieres marcar este pedido como "En Preparación"?'
+                            : '¿Estás seguro de que quieres marcar este pedido como "Listo para Servir"?'}
+                    </p>
+                </Modal>
             </div>
         </MainLayout>
     );

@@ -60,21 +60,24 @@ export const useOrderStore = create<OrderState>((set, get) => ({
             return;
         }
 
+        const areModificationsEqual = (mods1?: any[], mods2?: any[]) => {
+            if (!mods1 && !mods2) return true;
+            if (!mods1 || !mods2) return false;
+            if (mods1.length !== mods2.length) return false;
+            
+            const getIds = (mods: any[]) => mods.map(m => m.modifierId || m.modifierName).sort().join(',');
+            return getIds(mods1) === getIds(mods2);
+        };
+
         const existingItemIndex = currentOrder.items.findIndex(
-            (i) => i.productId === item.productId
+            (i) => i.productId === item.productId && areModificationsEqual(i.modifications, item.modifications)
         );
 
         let updatedItems;
         if (existingItemIndex >= 0) {
             updatedItems = [...currentOrder.items];
             updatedItems[existingItemIndex].quantity += item.quantity;
-            // Combinar toppings
-            if (item.modifications && updatedItems[existingItemIndex].modifications) {
-                updatedItems[existingItemIndex].modifications = [
-                    ...(updatedItems[existingItemIndex].modifications || []),
-                    ...(item.modifications || [])
-                ];
-            }
+            // No es necesario combinar toppings porque ya comprobamos que son iguales
         } else {
             updatedItems = [...currentOrder.items, item];
         }

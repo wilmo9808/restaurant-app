@@ -19,28 +19,54 @@ const prepareToppingsForSave = (modifications: any[] | undefined): string | null
 };
 
 export const createOrder = async (data: OrderInput, userId: string): Promise<OrderResponse> => {
-    // Obtener nombres de productos desde la base de datos
+    // Obtener nombres de productos desde la base de datos (solo activos)
     const productIds = data.items.map(item => item.productId);
     const products = await prisma.product.findMany({
-        where: { id: { in: productIds } },
-        select: { id: true, name: true }
+        where: {
+            id: { in: productIds },
+            isActive: true,
+            deletedAt: null,
+        },
+        select: { id: true, name: true, price: true }
     });
 
-    const productMap = new Map(products.map(p => [p.id, p.name]));
+    // Verificar que todos los productos existan y estén activos
+    const productMap = new Map(products.map(p => [p.id, p]));
+    const missingProducts = productIds.filter(id => !productMap.has(id));
+    if (missingProducts.length > 0) {
+        throw new Error('Algunos productos no están disponibles o fueron desactivados');
+    }
+
+    // Recalcular el total en el servidor para evitar manipulación
+    let calculatedTotal = 0;
+    const orderItemsData = data.items.map((item: OrderItemInput) => {
+        const product = productMap.get(item.productId)!;
+        const baseSubtotal = product.price * item.quantity;
+        
+        let toppingsTotal = 0;
+        if (item.modifications && item.modifications.length > 0) {
+            toppingsTotal = item.modifications.reduce((sum, mod) => sum + mod.price, 0) * item.quantity;
+        }
+        
+        const subtotal = baseSubtotal + toppingsTotal;
+        calculatedTotal += subtotal;
+
+        return {
+            productId: item.productId,
+            quantity: item.quantity,
+            subtotal: subtotal,
+            toppings: prepareToppingsForSave(item.modifications),
+        };
+    });
 
     const order = await prisma.order.create({
         data: {
             tableNumber: data.tableNumber,
-            total: data.total,
+            total: calculatedTotal,
             userId: userId,
             notes: data.notes || null,
             items: {
-                create: data.items.map((item: OrderItemInput) => ({
-                    productId: item.productId,
-                    quantity: item.quantity,
-                    subtotal: item.price * item.quantity,
-                    toppings: prepareToppingsForSave(item.modifications),
-                })),
+                create: orderItemsData,
             },
         },
         include: {
@@ -60,7 +86,7 @@ export const createOrder = async (data: OrderInput, userId: string): Promise<Ord
         items: order.items.map((item) => ({
             id: item.id,
             productId: item.productId,
-            productName: productMap.get(item.productId) || item.productId,
+            productName: productMap.get(item.productId)?.name || item.productId,
             quantity: item.quantity,
             price: item.subtotal / item.quantity,
             subtotal: item.subtotal,

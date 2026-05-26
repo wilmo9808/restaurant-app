@@ -24,14 +24,31 @@ export const useOrders = (status?: string) => {
 
         const handleNewOrder = (order: Order) => {
             console.log('📦 Nuevo pedido recibido en useOrders:', order.id.slice(-6));
+            // Actualizar caché de React Query directamente sin refetch
+            // para evitar race condition y duplicados
+            queryClient.setQueryData<Order[]>(['orders', status], (old = []) => {
+                // Evitar duplicados verificando si ya existe
+                if (old.some(o => o.id === order.id)) return old;
+                return [order, ...old];
+            });
+            // También actualizar la query sin filtro de status
+            queryClient.setQueryData<Order[]>(['orders', undefined], (old = []) => {
+                if (old.some(o => o.id === order.id)) return old;
+                return [order, ...old];
+            });
             addNewOrder(order);
-            refetch(); // Refrescar para asegurar consistencia
         };
 
         const handleOrderUpdated = (order: Order) => {
             console.log('🔄 Pedido actualizado en useOrders:', order.id.slice(-6), order.status);
+            // Actualizar caché directamente sin refetch
+            queryClient.setQueryData<Order[]>(['orders', status], (old = []) =>
+                old.map(o => o.id === order.id ? { ...o, status: order.status } : o)
+            );
+            queryClient.setQueryData<Order[]>(['orders', undefined], (old = []) =>
+                old.map(o => o.id === order.id ? { ...o, status: order.status } : o)
+            );
             updateStoreStatus(order.id, order.status);
-            refetch();
         };
 
         socket.on('new-order', handleNewOrder);

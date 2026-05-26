@@ -61,7 +61,8 @@ export const useSocket = () => {
 
         socketInstance.on(SOCKET_EVENTS.NEW_ORDER, (order: Order) => {
             console.log('📦 [CLIENT SOCKET EVENT] Evento NEW_ORDER recibido:', order.id.slice(-6));
-            addNewOrder(order);
+            // No llamar addNewOrder aquí - useOrders.ts se encarga de gestionar las órdenes
+            // para evitar duplicados en la UI
         });
 
         socketInstance.on(SOCKET_EVENTS.ORDER_STATUS_CHANGED, (data: { orderId: string; status: string }) => {
